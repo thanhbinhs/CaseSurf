@@ -1,0 +1,51 @@
+# =========================
+# Global: General
+# =========================
+*.log
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+# *.env
+*.DS_Store
+__pycache__/
+# .env.*
+!.env.example
+
+# Node & npm
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor & OS
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+**/.dockerignore
+docker-compose.override.yml
+
+# =========================
+# Python backend/
+# =========================
+backend/__pycache__/
+backend/.pytest_cache/
+backend/.mypy_cache/
+# backend/.env/
+# backend/env/
+backend/*.egg-info/
+
+# =========================
+# Next.js frontend/
+# =========================
+frontend/.next/
+frontend/node_modules/
+frontend/out/
+# frontend/.env.local
+frontend/.env.development
+frontend/.env.production
+frontend/yarn.lock

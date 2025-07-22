@@ -1,0 +1,32 @@
+
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    env_file:
+      - ./frontend/.env.local
+    ports:
+      - "${FRONTEND_PORT}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/.env
+    ports:
+      - "${BACKEND_PORT}:8001"
+    environment:
+      - GOOGLE_API_KEY=AIzaSyCbxSKsl35tbuHgwaFK2Zc3Tjti-HFoMccß
+      - N8N_AUTH_TOKEN
+    volumes:
+      - ./backend:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
