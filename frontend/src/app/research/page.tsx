@@ -2,11 +2,11 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react'; // Import Suspense
 import { useSearchParams } from 'next/navigation';
 
-import { useAuth } from '@/contexts/AuthContext'; // 1. Import useAuth
-import { db } from '@/lib/firebase'; // 2. Import Firestore instance
+import { useAuth } from '@/contexts/AuthContext';
+import { db } from '@/lib/firebase';
 
 // --- Components ---
 import Navbar from '@/components/Navbar';
@@ -33,8 +33,8 @@ interface CachedTiktokData {
     timestamp: number;
 }
 
-
-export default function ResearchPage() {
+// Create a separate Client Component that uses useSearchParams
+function ResearchContent() {
     const searchParams = useSearchParams();
 
     // State luồng chính
@@ -76,7 +76,7 @@ export default function ResearchPage() {
                 }
             }
         } catch (e) {
-            console.error("Lỗi cache:", e);
+            console.error("Lỗi khi đọc cache:", e);
         }
 
         // Nếu không có trong cache, gọi API
@@ -139,16 +139,13 @@ export default function ResearchPage() {
             if (!res.ok) throw new Error(scriptText || 'Failed to generate improved script');
 
             // --- BẮT ĐẦU LOGIC TRỪ CREDIT ---
-            // Nếu gọi API thành công, tiến hành trừ credit
             try {
                 const userDocRef = doc(db, 'users', user.uid);
                 await updateDoc(userDocRef, {
-                    credit: increment(-1) // Giảm giá trị credit đi 1
+                    credit: increment(-1)
                 });
                 console.log('Credit deducted successfully for user:', user.uid);
             } catch (creditError) {
-                // Ghi lại lỗi nếu việc trừ credit thất bại, nhưng không chặn người dùng
-                // vì họ đã nhận được kịch bản.
                 console.error("QUAN TRỌNG: Không thể trừ credit sau khi tạo kịch bản.", creditError);
             }
             // --- KẾT THÚC LOGIC TRỪ CREDIT ---
@@ -160,8 +157,7 @@ export default function ResearchPage() {
         } finally {
             setIsGeneratingNewScript(false);
         }
-    }, [report, user]); // 5. Thêm `user` vào dependency array của useCallback
-
+    }, [report, user]);
 
     const handleRetryGenerate = () => {
         if (lastImprovements.length > 0) {
@@ -172,15 +168,12 @@ export default function ResearchPage() {
     const handleCopyText = (textToCopy: string) => {
         if (!textToCopy) return;
         navigator.clipboard.writeText(textToCopy);
-        // Optional: Hiển thị thông báo "Đã sao chép!"
     };
 
     return (
-        <div className="bg-slate-50 min-h-screen flex flex-col">
-            <Navbar />
+        <> {/* Use a fragment or div to wrap */}
             <header className="p-4 bg-white/70 backdrop-blur-sm border-b border-slate-200 sticky top-0 z-10">
                 <div className="max-w-2xl mx-auto">
-                    {/* [SỬA ĐỔI] Truyền prop isLoading */}
                     <SearchBox
                         onSearch={handleSearch}
                         placeholder="Search for a TikTok video URL"
@@ -204,6 +197,18 @@ export default function ResearchPage() {
                     />
                 </div>
             </main>
+        </>
+    );
+}
+
+
+export default function ResearchPageWrapper() {
+    return (
+        <div className="bg-slate-50 min-h-screen flex flex-col">
+            <Navbar />
+            <Suspense fallback={<div>Loading research tools...</div>}>
+                <ResearchContent />
+            </Suspense>
         </div>
     );
 }

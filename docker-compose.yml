@@ -5,16 +5,17 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    env_file:
-      - ./frontend/.env.local
+    # env_file: # For production, consider using environment variables directly or a more secure secret management
+    #   - ./frontend/.env.local
     ports:
       - "${FRONTEND_PORT}:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    command: npm run dev
+    # volumes: # Remove volumes in production for built images
+    #   - ./frontend:/app
+    #   - /app/node_modules
+    # command: npm run dev # This is replaced by CMD in Dockerfile for production
     depends_on:
       - backend
+    restart: always # Add restart policy for production
 
   backend:
     build:
@@ -25,8 +26,17 @@ services:
     ports:
       - "${BACKEND_PORT}:8001"
     environment:
-      - GOOGLE_API_KEY=AIzaSyCbxSKsl35tbuHgwaFK2Zc3Tjti-HFoMccß
-      - N8N_AUTH_TOKEN
-    volumes:
-      - ./backend:/app
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+      # It's better to manage secrets securely (e.g., Docker secrets, Vault)
+      # instead of hardcoding sensitive keys in docker-compose.yml for production.
+      # For a small deployment, keeping them in .env and loading via env_file is common.
+      - N8N_AUTH_TOKEN=${N8N_AUTH_TOKEN} # Reference from .env file
+    # volumes: # Remove volumes in production for built images
+    #   - ./backend:/app
+    # command: uvicorn main:app --host 0.0.0.0 --port 8001 --reload # This is replaced by CMD in Dockerfile for production
+    restart: always # Add restart policy for production
+
+networks:
+  default:
+    # Optional: Define a custom network if you have more complex networking needs
+    # Otherwise, Docker Compose creates a default network for your services.
+    # driver: bridge
