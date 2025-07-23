@@ -1,19 +1,27 @@
-import React, {useState} from 'react';
-import { ChevronDownIcon } from './Icons';
-import {ClipboardIcon} from './Icons';
+// components/CollapsibleCard.tsx
+
+import React, { useState } from 'react';
+import { ChevronDownIcon, ClipboardIcon, PencilIcon, SaveIcon } from './Icons'; // Thêm PencilIcon
 
 export const CollapsibleCard = ({
     title,
     children,
     onCopy,
     copyText,
+    onSave, // <<< THÊM
+    isSaving, // <<< THÊM
+    onEdit, // Thêm prop onEdit (tùy chọn)
     borderClass = 'border-slate-200',
     titleColor = 'text-gray-800',
+    
 }: {
     title: string;
     children: React.ReactNode;
     onCopy: () => void;
     copyText: string;
+        onSave?: () => void; // <<< THÊM
+    isSaving?: boolean; // <<< THÊM
+    onEdit?: () => void; // Định nghĩa kiểu cho onEdit
     borderClass?: string;
     titleColor?: string;
 }) => {
@@ -30,7 +38,31 @@ export const CollapsibleCard = ({
         <div className={`bg-white rounded-2xl shadow-lg border ${borderClass} overflow-hidden`}>
             <div className="flex items-center justify-between p-4 md:p-5 cursor-pointer" onClick={() => setIsOpen(!isOpen)}>
                 <h2 className={`text-xl md:text-2xl font-bold ${titleColor} truncate pr-4`}>{title}</h2>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                    {/* Nút Edit: Chỉ hiển thị nếu có prop onEdit */}
+                    {onSave && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onSave(); }}
+                            className="bg-blue-100 hover:bg-blue-200 p-2 rounded-lg transition disabled:opacity-50 disabled:cursor-wait"
+                            title="Lưu vào Firestore"
+                            disabled={isSaving}
+                        >
+                            {isSaving ? 
+                                <span className="text-sm text-blue-600 font-semibold px-1">Đang lưu...</span> : 
+                                <SaveIcon className="w-5 h-5 text-blue-600" />}
+                        </button>
+                    )}
+                    {onEdit && (
+                         <button
+                            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                            className="bg-slate-100 hover:bg-slate-200 p-2 rounded-lg transition"
+                            title="Chỉnh sửa"
+                        >
+                            <PencilIcon className="w-5 h-5 text-slate-600" />
+                        </button>
+                    )}
+                    
+                    {/* Nút Copy */}
                     <button
                         onClick={(e) => { e.stopPropagation(); handleCopy(); }}
                         className="bg-slate-100 hover:bg-slate-200 p-2 rounded-lg transition"
@@ -38,13 +70,19 @@ export const CollapsibleCard = ({
                     >
                         {isCopied ? <span className="text-sm text-blue-600 font-semibold px-1">Đã chép</span> : <ClipboardIcon className="w-5 h-5 text-slate-600" />}
                     </button>
-                    <button className="p-2 rounded-lg hover:bg-slate-100">
+                    
+
+                    {/* Nút Thu gọn/Mở rộng */}
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+                        className="p-2 rounded-lg hover:bg-slate-100"
+                    >
                         <ChevronDownIcon className={`w-6 h-6 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
                 </div>
             </div>
             <div className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                <div className="px-4 md:px-6 pb-6 md:pb-8 border-t border-slate-200">
+                <div className="px-4 md:px-6 pb-6 md:pb-8 border-t border-slate-200 pt-6">
                     {children}
                 </div>
             </div>

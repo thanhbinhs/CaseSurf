@@ -15,8 +15,10 @@ async def create_report(request_data: ProductRequest) -> Report:
     """
     try:
         # 1. Gọi service để lấy nội dung báo cáo (dạng string)
-        report_text = await service.generate_report(request_data.product)
-        
+        report_text = await service.generate_report(
+            product=request_data.product,
+            userId=request_data.userId)
+
         # 2. Đóng gói nội dung vào model `Report` và trả về
         return Report(text=report_text)
 

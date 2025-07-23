@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense } from 'react'; // Import Suspense
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +12,7 @@ import { db } from '@/lib/firebase';
 import Navbar from '@/components/Navbar';
 import SearchBox from '@/components/SearchBox';
 import { ResultDisplay } from '@/components/research/ResultDisplay';
-import { doc, increment, updateDoc } from 'firebase/firestore';
+import { doc, increment, updateDoc,  setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 
 // --- Types ---
 type ImprovementRequest = {
@@ -36,12 +36,13 @@ interface CachedTiktokData {
 // Create a separate Client Component that uses useSearchParams
 function ResearchContent() {
     const searchParams = useSearchParams();
+    const currentUrl = searchParams.get('url');
 
     // State luồng chính
     const [report, setReport] = useState<string>('');
     const [isLoadingReport, setIsLoadingReport] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { user } = useAuth();
+    const { user } = useAuth(); // Giả sử 'user' object từ useAuth chứa thông tin credit
 
     // State luồng cải tiến
     const [lastImprovements, setLastImprovements] = useState<string[]>([]);
@@ -49,19 +50,62 @@ function ResearchContent() {
     const [improvedScript, setImprovedScript] = useState('');
     const [scriptGenerationError, setScriptGenerationError] = useState<string | null>(null);
 
-    const resetAllState = () => {
+    // State for editing the improved script
+    const [isEditingScript, setIsEditingScript] = useState(false);
+
+    const [currentView, setCurrentView] = useState<'report' | 'script'>('report');
+
+    const [isEditingReport, setIsEditingReport] = useState(false);
+
+    // <<< STATE MỚI >>>
+    const [isSaving, setIsSaving] = useState(false); // Trạng thái cho nút lưu
+    const [hasCheckedFirestore, setHasCheckedFirestore] = useState(false); // Ngăn việc gọi lại liên tục
+
+
+    const resetAllState = useCallback(() => {
         setReport('');
         setError(null);
         setImprovedScript('');
         setScriptGenerationError(null);
         setLastImprovements([]);
+        setIsEditingScript(false);
+        setCurrentView('report'); // Reset về giao diện report
+        setIsEditingReport(false);
+    }, []);
+
+     const encodeUrlForId = (url: string) => {
+        // btoa là cách đơn giản nhất để mã hóa URL thành một chuỗi hợp lệ cho ID của Firestore
+        return btoa(url);
     };
 
     const handleSearch = useCallback(async (videoUrl: string) => {
         if (!videoUrl) return;
 
+        if (!user) {
+        setError("Bạn cần đăng nhập để sử dụng chức năng này.");
+        setIsLoadingReport(false);
+        return; // Dừng hàm nếu chưa đăng nhập
+    }
         setIsLoadingReport(true);
         resetAllState();
+
+        try {
+            const docId = encodeUrlForId(videoUrl);
+            const docRef = doc(db, 'users', user.uid, 'saved_scripts', docId);
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setReport(data.originalReport);
+                setImprovedScript(data.improvedScript);
+                console.log("Loaded data from Firestore.");
+                setIsLoadingReport(false);
+                return; // Dừng lại nếu đã có dữ liệu
+            }
+        } catch (e) {
+            console.error("Error loading from Firestore:", e);
+        }
+
 
         // Kiểm tra cache trước
         try {
@@ -84,7 +128,7 @@ function ResearchContent() {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/report`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ product: videoUrl }),
+                body: JSON.stringify({ product: videoUrl, userId: user.displayName }),
             });
             if (!res.ok) {
                 const errorData = await res.json();
@@ -98,30 +142,26 @@ function ResearchContent() {
         } finally {
             setIsLoadingReport(false);
         }
-    }, []);
+    }, [user, resetAllState]); // SỬA LỖI: Thêm user và resetAllState vào dependency array
 
     useEffect(() => {
-        const urlFromQuery = searchParams.get('url');
-        const descFromQuery = searchParams.get('description');
-
-        if (descFromQuery) {
-            setReport(descFromQuery);
-            setIsLoadingReport(false);
-        } else if (urlFromQuery) {
-            handleSearch(urlFromQuery);
-        } else {
+        // Logic này cần được xem xét lại để tránh gọi lại handleSearch không cần thiết
+        if (currentUrl && user && !hasCheckedFirestore) {
+            handleSearch(currentUrl);
+            setHasCheckedFirestore(true);
+        } else if (!currentUrl) {
             setError("Vui lòng cung cấp URL để phân tích.");
             setIsLoadingReport(false);
         }
-    }, [searchParams, handleSearch]);
+    }, [currentUrl, user, hasCheckedFirestore, handleSearch]);
 
    const handleGenerateNewScript = useCallback(async (improvements: string[]) => {
         setLastImprovements(improvements);
         setIsGeneratingNewScript(true);
         setImprovedScript('');
         setScriptGenerationError(null);
+        setIsEditingScript(false);
 
-        // Kiểm tra xem người dùng có đăng nhập không trước khi gọi API
         if (!user) {
             setScriptGenerationError("Vui lòng đăng nhập để sử dụng chức năng này.");
             setIsGeneratingNewScript(false);
@@ -129,7 +169,26 @@ function ResearchContent() {
         }
 
         try {
-            const payload: ImprovementRequest = { original_report: report, improvements };
+            // Bước 1: Lấy dữ liệu credit mới nhất từ Firestore
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDocSnap = await getDoc(userDocRef);
+
+            if (!userDocSnap.exists()) {
+                throw new Error("Không tìm thấy thông tin người dùng.");
+            }
+
+            const currentCredit = userDocSnap.data().credit;
+
+            // Bước 2: Kiểm tra credit
+            if (currentCredit <= 0) {
+                setScriptGenerationError("You don't have enough credit to generate a new script. Please recharge.");
+                setIsGeneratingNewScript(false);
+                return;
+            }
+
+            // Bước 3: Nếu đủ credit, tiến hành gọi API
+            const baseText = improvedScript || report;
+            const payload: ImprovementRequest = { original_report: baseText, improvements };
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/improvement-script`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -138,37 +197,82 @@ function ResearchContent() {
             const scriptText = await res.text();
             if (!res.ok) throw new Error(scriptText || 'Failed to generate improved script');
 
-            // --- BẮT ĐẦU LOGIC TRỪ CREDIT ---
-            try {
-                const userDocRef = doc(db, 'users', user.uid);
-                await updateDoc(userDocRef, {
-                    credit: increment(-1)
-                });
-                console.log('Credit deducted successfully for user:', user.uid);
-            } catch (creditError) {
-                console.error("QUAN TRỌNG: Không thể trừ credit sau khi tạo kịch bản.", creditError);
-            }
-            // --- KẾT THÚC LOGIC TRỪ CREDIT ---
+            // Bước 4: Trừ credit sau khi gọi API thành công
+            await updateDoc(userDocRef, {
+                credit: increment(-1)
+            });
+            console.log('Credit deducted successfully for user:', user.uid);
 
             setImprovedScript(scriptText);
+
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
             setScriptGenerationError(`Đã xảy ra lỗi: ${errorMessage}.`);
         } finally {
             setIsGeneratingNewScript(false);
         }
-    }, [report, user]);
+    }, [report, improvedScript, user]);
+
+     const handleSaveScript = async () => {
+        if (!user || !currentUrl || !improvedScript) {
+            alert("Cannot save. Missing user, URL, or script content.");
+            return;
+        }
+        setIsSaving(true);
+        try {
+            const docId = encodeUrlForId(currentUrl);
+            const docRef = doc(db, 'users', user.uid, 'saved_scripts', docId);
+            await setDoc(docRef, {
+                originalReport: report,
+                improvedScript: improvedScript,
+                tiktokUrl: currentUrl,
+                savedAt: serverTimestamp(),
+            }, { merge: true }); // Dùng merge để không ghi đè các trường khác nếu có
+            alert("Script saved successfully!");
+        } catch (error) {
+            console.error("Error saving script to Firestore:", error);
+            alert("Failed to save script.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleRetryGenerate = () => {
         if (lastImprovements.length > 0) {
             handleGenerateNewScript(lastImprovements);
         }
     };
+        const handleStartEditReport = () => {
+        setIsEditingReport(true);
+    };
+
+        const handleCancelEditReport = () => {
+        setIsEditingReport(false);
+    };
+        const handleSaveEditReport = (newReport: string) => {
+        setReport(newReport); // Cập nhật lại state report gốc
+        setIsEditingReport(false);
+    };
 
     const handleCopyText = (textToCopy: string) => {
         if (!textToCopy) return;
         navigator.clipboard.writeText(textToCopy);
     };
+
+    // --- Handlers for editing the script ---
+    const handleStartEdit = () => {
+        setIsEditingScript(true);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditingScript(false);
+    };
+
+    const handleSaveEdit = (newScript: string) => {
+        setImprovedScript(newScript);
+        setIsEditingScript(false);
+    };
+
 
     return (
         <> {/* Use a fragment or div to wrap */}
@@ -183,21 +287,44 @@ function ResearchContent() {
             </header>
 
             <main className="flex-grow flex items-start justify-center p-4 md:p-8">
-                <div className="w-full max-w-4xl mx-auto space-y-8">
-                    <ResultDisplay
-                        isLoadingReport={isLoadingReport}
-                        report={report}
-                        error={error}
-                        isGeneratingNewScript={isGeneratingNewScript}
-                        improvedScript={improvedScript}
-                        scriptGenerationError={scriptGenerationError}
-                        onGenerateNewScript={handleGenerateNewScript}
-                        onRetryGenerate={handleRetryGenerate}
-                        onCopy={handleCopyText}
-                    />
-                </div>
-            </main>
-        </>
+            <div className="w-full max-w-4xl mx-auto space-y-8">
+                <ResultDisplay
+                    // --- Props chung (giữ nguyên) ---
+                    isLoadingReport={isLoadingReport}
+                    report={report}
+                    error={error}
+                    isGeneratingNewScript={isGeneratingNewScript}
+                    improvedScript={improvedScript}
+                    scriptGenerationError={scriptGenerationError}
+                    onGenerateNewScript={handleGenerateNewScript}
+                    onRetryGenerate={handleRetryGenerate}
+                    onCopy={handleCopyText}
+
+                    // --- Props cho SỬA REPORT (giữ nguyên) ---
+                    isEditingReport={isEditingReport}
+                    onEditReport={handleStartEditReport}
+                    onSaveReport={handleSaveEditReport}
+                    onCancelEditReport={handleCancelEditReport}
+
+                    // --- Props cho việc chuyển đổi giao diện ---
+                    currentView={currentView}
+                    onViewChange={setCurrentView}
+                    
+                    // --- SỬA LẠI PROPS CHO SỬA SCRIPT ---
+
+                    // 1. Props cho trình soạn thảo (textarea)
+                    isEditingScript={isEditingScript}
+                    onEditScript={handleStartEdit}
+                    onSaveEditScript={handleSaveEdit} // <<< DÙNG handleSaveEdit cho việc lưu state
+                    onCancelEditScript={handleCancelEdit}
+
+                    // 2. Props cho nút Save trên header (lưu vào Firestore)
+                    onSaveToFirestore={handleSaveScript} // <<< DÙNG handleSaveScript cho việc lưu vào DB
+                    isSaving={isSaving}
+                />
+            </div>
+        </main>
+    </>
     );
 }
 

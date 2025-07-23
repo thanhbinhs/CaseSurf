@@ -40,3 +40,54 @@ networks:
     # Optional: Define a custom network if you have more complex networking needs
     # Otherwise, Docker Compose creates a default network for your services.
     # driver: bridge
+
+# services:
+#   # Service cho Frontend (Next.js)
+#   frontend:
+#     build:
+#       context: ./frontend    # Thư mục chứa code của frontend
+#       dockerfile: Dockerfile # Tên file Dockerfile
+#     ports:
+#       # Ánh xạ cổng từ máy host vào container.
+#       # Ví dụ: nếu FRONTEND_PORT=3000, nó sẽ ánh xạ cổng 3000 của host tới 3000 của container.
+#       # Nếu biến môi trường không được đặt, nó sẽ mặc định là 3000.
+#       - "${FRONTEND_PORT:-3000}:3000"
+#     volumes:
+#       # Dành cho DEVELOPMENT: đồng bộ code từ máy host vào container.
+#       # Giúp hot-reload hoạt động khi bạn sửa code.
+#       # >> XÓA KHỐI NÀY KHI DEPLOY PRODUCTION <<
+#       - ./frontend:/app
+#       # Ngăn thư mục node_modules trên máy host ghi đè lên thư mục trong container.
+#       - /app/node_modules
+#     networks:
+#       - my_app_network # Kết nối service này vào mạng chung
+#     depends_on:
+#       - backend      # Khởi chạy sau khi 'backend' đã khởi chạy
+#     restart: unless-stopped # Tự động khởi động lại container trừ khi bạn tự tay dừng nó
+
+#   # Service cho Backend (FastAPI)
+#   backend:
+#     build:
+#       context: ./backend     # Thư mục chứa code của backend
+#       dockerfile: Dockerfile # Tên file Dockerfile
+#     ports:
+#       # Ánh xạ cổng cho backend, mặc định là 8001.
+#       - "${BACKEND_PORT:-8001}:8001"
+#     volumes:
+#       # Dành cho DEVELOPMENT: đồng bộ code backend để hot-reload với uvicorn.
+#       # >> XÓA KHỐI NÀY KHI DEPLOY PRODUCTION <<
+#       - ./backend:/app
+#     env_file:
+#       - ./backend/.env   # Tải tất cả các biến môi trường từ file .env của backend
+#     environment:
+#       # Bạn cũng có thể truyền các biến môi trường cụ thể từ file .env ở thư mục gốc.
+#       # Biến này sẽ ghi đè lên biến cùng tên trong env_file nếu có.
+#       - N8N_AUTH_TOKEN=${N8N_AUTH_TOKEN}
+#     networks:
+#       - my_app_network # Kết nối service này vào mạng chung
+#     restart: unless-stopped
+
+# # Định nghĩa mạng chung cho các services
+# networks:
+#   my_app_network:
+#     driver: bridge # Sử dụng driver mạng mặc định

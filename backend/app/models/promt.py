@@ -4,6 +4,7 @@ from typing import List
 
 class ProductRequest(BaseSettings):
     product: str
+    userId: str  # Thêm userId để xác định người dùng
 
 class Report(BaseSettings):
     text: str
@@ -22,6 +23,7 @@ class TiktokData(BaseModel):
     keyword: List[str] | None = None
     click: int | None = None
     tym: int | None = None
+    userId: str | None = None  # Thêm trường userId để xác định người dùng
 
 class TiktokDataResponse(BaseModel):
     """

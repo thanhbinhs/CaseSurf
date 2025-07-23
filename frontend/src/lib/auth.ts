@@ -1,4 +1,4 @@
-// lib/auth.ts
+// lib/auth.ts (Đã sửa lỗi)
 
 import {
   GoogleAuthProvider,
@@ -6,10 +6,10 @@ import {
   signOut,
   User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db } from "./firebase"; // Đảm bảo import cả 'db'
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "./firebase";
 
-// --- Đăng nhập với Google và lưu vào Firestore (Phiên bản đã sửa lỗi) ---
+// --- Đăng nhập với Google và lưu vào Firestore ---
 export const signInWithGoogle = async (): Promise<User | null> => {
   const provider = new GoogleAuthProvider();
 
@@ -17,7 +17,7 @@ export const signInWithGoogle = async (): Promise<User | null> => {
     const result = await signInWithPopup(auth, provider);
     const user = result.user;
 
-    // Sau khi đăng nhập thành công, kiểm tra và tạo dữ liệu trên Firestore
+    // Kiểm tra và tạo dữ liệu trên Firestore nếu cần
     if (user) {
       const userDocRef = doc(db, "users", user.uid);
       const docSnap = await getDoc(userDocRef);
@@ -25,24 +25,19 @@ export const signInWithGoogle = async (): Promise<User | null> => {
       // Nếu tài liệu chưa tồn tại (người dùng mới), TẠO nó
       if (!docSnap.exists()) {
         console.log("Creating new user profile in Firestore for:", user.uid);
-        try {
-          await setDoc(userDocRef, {
-            username: user.displayName,
-            gmail: user.email,
-            credit: 5, // Gán credit mặc định
-            createdAt: new Date(),
-          });
-          console.log("User profile created successfully.");
-        } catch (dbError) {
-          console.error("Error creating user profile in Firestore:", dbError);
-          // Optional: Handle the error, maybe sign the user out
-        }
+        await setDoc(userDocRef, {
+          username: user.displayName,
+          gmail: user.email,
+          credit: 5, // Gán credit mặc định
+          createdAt: serverTimestamp(), // Dùng serverTimestamp cho chính xác
+        });
+        console.log("User profile created successfully.");
       } else {
         console.log("User profile already exists for:", user.uid);
       }
     }
-
-    // Chỉ trả về user SAU KHI tất cả các thao tác trên đã hoàn tất
+    
+    // Trả về đối tượng user sau khi mọi việc hoàn tất
     return user;
 
   } catch (error) {
@@ -50,7 +45,6 @@ export const signInWithGoogle = async (): Promise<User | null> => {
     return null;
   }
 };
-
 
 // --- Đăng xuất ---
 export const signOutUser = async (): Promise<void> => {

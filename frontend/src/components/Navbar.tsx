@@ -13,9 +13,6 @@ import Buttonv1 from './Buttonv1';
 import { db } from '@/lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
 
-// Import Icon (ví dụ)
-// import { CoinIcon } from './icons/CoinIcon';
-
 // --- Icon (Tạm thời đặt ở đây cho tiện) ---
 const CoinIcon = ({ className }: { className?: string }) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}>
@@ -36,16 +33,13 @@ interface UserProfile {
 export default function Navbar() {
     const router = useRouter();
     const { user, loading } = useAuth();
-    const [userProfile, setUserProfile] = useState<UserProfile | null>(null); // State cho dữ liệu credit
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    // Lắng nghe thay đổi dữ liệu người dùng (bao gồm credit) trong thời gian thực
     useEffect(() => {
         if (user) {
             const userDocRef = doc(db, 'users', user.uid);
-            
-            // onSnapshot sẽ lắng nghe mọi thay đổi trên document này
             const unsubscribe = onSnapshot(userDocRef, (doc) => {
                 if (doc.exists()) {
                     setUserProfile(doc.data() as UserProfile);
@@ -53,17 +47,15 @@ export default function Navbar() {
                     console.log("No such user profile!");
                 }
             });
-
-            // Hủy lắng nghe khi component unmount hoặc user thay đổi
             return () => unsubscribe();
         } else {
-            // Reset profile khi người dùng đăng xuất
             setUserProfile(null);
         }
     }, [user]);
 
     const handleNavigation = (path: string) => {
         router.push(path);
+        setIsDropdownOpen(false); // Đóng dropdown sau khi điều hướng
     };
 
     const handleSignOut = () => {
@@ -92,7 +84,6 @@ export default function Navbar() {
         if (user) {
             return (
                 <div className="flex items-center gap-4">
-                    {/* Nút Credit */}
                     <button
                         onClick={() => handleNavigation('/payment')}
                         className="flex cursor-pointer items-center gap-2 px-3 py-2 bg-yellow-400 text-yellow-900 font-bold rounded-full shadow-md hover:bg-yellow-300 transition-all duration-300 transform hover:scale-105"
@@ -101,11 +92,10 @@ export default function Navbar() {
                         <span>{userProfile ? userProfile.credit : '...'}</span>
                     </button>
 
-                    {/* Dropdown Avatar */}
                     <div className="relative" ref={dropdownRef}>
                         <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="cursor-pointer block rounded-full overflow-hidden border-2 border-transparent hover:border-blue-400 transition-colors">
                             <Image
-                                src={user.photoURL || '/images/default-avatar.png'}
+                                src={user.photoURL || '/images/default_avatar.jpg'}
                                 alt="User Avatar"
                                 width={40}
                                 height={40}
@@ -119,12 +109,20 @@ export default function Navbar() {
                                     <p className="font-bold truncate">{user.displayName}</p>
                                     <p className="text-sm text-gray-500 truncate">{user.email}</p>
                                 </div>
+                                {/* --- THÊM MỤC MỚI Ở ĐÂY --- */}
+                                <a
+                                    href="#"
+                                    className="block px-4 py-2 text-sm hover:bg-gray-100"
+                                    onClick={(e) => { e.preventDefault(); handleNavigation('/personal'); }}
+                                >
+                                    Your Library
+                                </a>
                                 <a
                                     href="#"
                                     className="block px-4 py-2 text-sm hover:bg-gray-100"
                                     onClick={(e) => { e.preventDefault(); handleSignOut(); }}
                                 >
-                                    Đăng xuất
+                                    Sign Out
                                 </a>
                             </div>
                         )}

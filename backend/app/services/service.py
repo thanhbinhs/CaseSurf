@@ -12,7 +12,7 @@ class n8nService:
         # Lấy API key từ biến môi trường hoặc cấu hình
         self.auth_token = os.getenv("N8N_AUTH_TOKEN")
 
-    async def generate_report(self, product_name: str) -> str:
+    async def generate_report(self, product: str, userId: str) -> str:
         """
         Gọi một webhook của n8n để tạo báo cáo cho một sản phẩm.
         Phương thức này sử dụng httpx để hoạt động bất đồng bộ.
@@ -36,11 +36,12 @@ class n8nService:
         }
 
         print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {headers}")
-        payload = {"product": product_name}
-        
+        payload = {"product": product}
+        payload["userId"] = userId
+
         # Sử dụng AsyncClient của httpx để gửi request bất đồng bộ
         async with httpx.AsyncClient(timeout=300.0) as client:
-            print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {product_name}")
+            print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {product}")
             response = await client.post(webhook_url, headers=headers, json=payload)
             
             # Tự động ném ra exception nếu status code là lỗi

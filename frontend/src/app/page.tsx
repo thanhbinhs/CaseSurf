@@ -22,6 +22,7 @@ interface TikTokData {
     keyword: string[] | null;
     click: number | null;
     tym: number | null;
+    userId: string | null; // Thêm trường userId
 }
 
 interface CachedTiktokData {
@@ -174,6 +175,9 @@ export default function Page() {
                                         <div className="flex items-center gap-1.5">
                                             <CursorArrowRaysIcon className="w-5 h-5 text-sky-500" />
                                             <span className="font-medium">{video.click || 0}</span>
+                                        </div>
+                                         <div className="flex items-center gap-1.5">
+                                            <span className="font-medium">{video.userId || "Unknown"}</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
                                             <HeartIcon className="w-5 h-5 text-red-500" />

@@ -51,7 +51,7 @@ export default function SearchBox({
              disabled={isLoading || !query.trim()}
                 type="submit" // 3. Thêm type="submit" cho accessibility
                 aria-label="Tìm kiếm" // Và aria-label
-                className="absolute right-2 flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2"
+                className="absolute cursor-pointer right-2 flex h-10 w-10 items-center justify-center rounded-full bg-purple-600 text-white transition-colors hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2"
             >
                 <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                     <path
