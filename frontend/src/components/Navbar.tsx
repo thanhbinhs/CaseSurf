@@ -123,7 +123,7 @@ export default function Navbar() {
                                     <a
                                         href="#"
                                         className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
-                                        onClick={(e) => { e.preventDefault(); handleNavigation('/library'); }}
+                                        onClick={(e) => { e.preventDefault(); handleNavigation('/personal'); }}
                                     >
                                         <LibraryIcon className="w-5 h-5 text-slate-500" />
                                         <span>My Library</span>
