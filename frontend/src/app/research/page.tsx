@@ -56,6 +56,7 @@ function ResearchContent() {
     const [currentView, setCurrentView] = useState<'report' | 'script'>('report');
 
     const [isEditingReport, setIsEditingReport] = useState(false);
+    
 
     // <<< STATE MỚI >>>
     const [isSaving, setIsSaving] = useState(false); // Trạng thái cho nút lưu
@@ -168,7 +169,9 @@ function ResearchContent() {
             return;
         }
 
+     
         try {
+
             // Bước 1: Lấy dữ liệu credit mới nhất từ Firestore
             const userDocRef = doc(db, 'users', user.uid);
             const userDocSnap = await getDoc(userDocRef);
@@ -185,10 +188,16 @@ function ResearchContent() {
                 setIsGeneratingNewScript(false);
                 return;
             }
+               // 1. Xác định xem đây có phải là yêu cầu lặp lại không
+    const isIterativeRequest = !!improvedScript; // Chuyển đổi thành boolean (true/false)
 
             // Bước 3: Nếu đủ credit, tiến hành gọi API
             const baseText = improvedScript || report;
-            const payload: ImprovementRequest = { original_report: baseText, improvements };
+            const payload = {
+            base_text: baseText, // Đổi tên từ 'original_report' cho rõ nghĩa
+            improvements: improvements,
+            is_iterative: isIterativeRequest, // Gửi cờ này lên backend
+        };
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/improvement-script`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },

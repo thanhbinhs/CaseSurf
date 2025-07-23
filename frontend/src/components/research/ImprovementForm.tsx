@@ -30,12 +30,20 @@ export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: Improveme
   };
 
   const handleGenerateClick = () => {
-    const selected = Object.entries(improvementChoices)
-      .filter(([key, value]) => key !== 'all' && value)
-      .map(([key]) => key);
-    
-    if (selected.length > 0) {
-      onGenerateNewScript(selected);
+    const selectedCheckboxes = Object.entries(improvementChoices)
+      .filter(([, value]) => value)
+      .map(([key]) => {
+          // Chuyển key thành một câu mô tả rõ ràng hơn cho AI
+          switch(key) {
+              case 'hook': return 'Improve the hook';
+              case 'script': return 'Optimize the script and pacing';
+              case 'cta': return 'Strengthen the Call To Action (CTA)';
+              default: return key;
+          }
+      });
+
+    if (selectedCheckboxes.length > 0) {
+      onGenerateNewScript(selectedCheckboxes);
     }
   };
   

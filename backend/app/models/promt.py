@@ -9,15 +9,11 @@ class ProductRequest(BaseSettings):
 class Report(BaseSettings):
     text: str
 class ImprovementRequest(BaseModel):
-    """
-    Model cho request tạo kịch bản cải tiến.
-    Chứa báo cáo gốc và danh sách các yếu tố người dùng đã chọn để cải thiện.
-    """
-    original_report: str
-    improvements: List[str] # Ví dụ: ["hook", "cta"]
+    base_text: str  # Đổi tên cho rõ ràng
+    improvements: List[str]
+    is_iterative: bool = False # Mặc định là false để tương thích ngược
 
 class TiktokData(BaseModel):
-    id: int
     url_tiktok: str  # <-- TÊN TRƯỜNG GÂY LỖI
     description: str | None = None
     keyword: List[str] | None = None

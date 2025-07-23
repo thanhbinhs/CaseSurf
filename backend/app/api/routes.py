@@ -53,10 +53,10 @@ async def create_improvement_script(request_data: ImprovementRequest) -> str:
     print("Nhận request tạo kịch bản cải tiến:", request_data)
 
     try:
-        # 1. Gọi service để tạo kịch bản cải tiến
         script_text = await service.generate_script(
-            original_report=request_data.original_report,
-            improvements=request_data.improvements
+            base_text=request_data.base_text,
+            improvements=request_data.improvements,
+            is_iterative=request_data.is_iterative  # <<< Truyền cờ đi
         )
         
         return script_text

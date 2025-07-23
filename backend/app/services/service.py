@@ -57,7 +57,7 @@ class n8nService:
             print("Nhận phản hồi thành công từ n8n.")
             return report_text
         
-    async def generate_script(self, original_report: str, improvements: List[str]) -> str:
+    async def generate_script(self, base_text: str, improvements: List[str], is_iterative: bool) -> str:
         """
         Gọi một webhook của n8n để tạo kịch bản cải tiến dựa trên báo cáo gốc và các yếu tố cải tiến.
 
@@ -79,8 +79,9 @@ class n8nService:
             "N8N_AUTH_TOKEN": self.auth_token
         }
         payload = {
-            "original_report": original_report,
-            "improvements": improvements
+            "base_text": base_text,
+            "improvements": improvements,
+            "is_iterative": is_iterative
         }
         
         async with httpx.AsyncClient(timeout=300.0) as client:
