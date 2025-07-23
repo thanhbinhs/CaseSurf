@@ -106,7 +106,7 @@ export default function Navbar() {
                         <button onClick={() => setIsDropdownOpen(!isDropdownOpen)} className="cursor-pointer block rounded-full overflow-hidden border-2 border-transparent hover:border-purple-500 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
                             <Image
                                 src={user.photoURL || '/images/default_avatar.jpg'}
-                                alt="User Avatar"
+                                alt="User"
                                 width={40}
                                 height={40}
                                 className="object-cover"
