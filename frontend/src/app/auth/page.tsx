@@ -1,16 +1,15 @@
-// app/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { signInWithGoogle, signOutUser } from '@/lib/auth';
-// Sửa đổi import để dùng onSnapshot
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Navbar from '@/components/Navbar';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation'; // Thêm import
 
-// --- Icons (giữ nguyên) ---
+// --- Icons ---
 const GoogleIcon = () => (
     <svg className="w-5 h-5" viewBox="0 0 48 48">
         <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12s5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path>
@@ -20,7 +19,7 @@ const GoogleIcon = () => (
     </svg>
 );
 
-// --- Kiểu dữ liệu (giữ nguyên) ---
+// --- Kiểu dữ liệu ---
 interface UserProfile {
     username: string;
     gmail: string;
@@ -28,106 +27,96 @@ interface UserProfile {
 }
 
 export default function Home() {
+    const router = useRouter(); // Thêm router để điều hướng
     const { user, loading } = useAuth();
     const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-    // [THAY ĐỔI] Lắng nghe dữ liệu profile thời gian thực
     useEffect(() => {
-        // Nếu có user, bắt đầu lắng nghe thay đổi
         if (user) {
             const userDocRef = doc(db, 'users', user.uid);
-            
-            // onSnapshot sẽ kích hoạt mỗi khi dữ liệu của user thay đổi
             const unsubscribe = onSnapshot(userDocRef, (doc) => {
                 if (doc.exists()) {
                     setUserProfile(doc.data() as UserProfile);
                 } else {
-                    console.log("Tài liệu người dùng không tồn tại.");
+                    console.log("User document does not exist.");
                 }
             });
-
-            // Dọn dẹp listener khi component unmount hoặc user thay đổi
             return () => unsubscribe();
         } else {
-            // Reset profile khi user đăng xuất
             setUserProfile(null);
         }
-    }, [user]); // Phụ thuộc vào `user`
+    }, [user]);
 
-    // --- Component LoginContent (giữ nguyên) ---
+    // --- Component Nội dung Đăng nhập ---
     const LoginContent = () => (
-        <div className="w-full max-w-sm text-center">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Bắt đầu hành trình</h1>
-            <p className="text-gray-500 mb-8">Đăng nhập để khám phá và sáng tạo không giới hạn.</p>
+        <div className="w-full max-w-md mx-auto bg-white p-8 md:p-12 rounded-2xl shadow-lg border border-slate-200 text-center">
+            <Image src="/images/logo.svg" alt="CaseSurf Logo" width={180} height={45} className="mx-auto mb-6" />
+            <h1 className="text-3xl font-bold text-slate-800 mb-2">Welcome Back</h1>
+            <p className="text-slate-500 mb-8">Sign in to continue your journey to viral success.</p>
             <button
                 onClick={signInWithGoogle}
-                className="w-full inline-flex justify-center items-center gap-3 py-3 px-4 bg-white border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-50 transition-colors shadow-sm"
+                className="cursor-pointer w-full inline-flex justify-center items-center gap-3 py-3 px-4 bg-white border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-50 transition-colors shadow-sm"
             >
                 <GoogleIcon />
-                Đăng nhập bằng Google
+                Sign in with Google
             </button>
         </div>
     );
 
-    // --- Component UserProfileContent (giữ nguyên) ---
+    // --- Component Nội dung Hồ sơ Người dùng ---
     const UserProfileContent = () => {
         if (!user) return null;
 
         return (
-        <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-lg text-center">
+        <div className="w-full max-w-md mx-auto bg-white p-8 rounded-2xl shadow-lg border border-slate-200 text-center">
             {user.photoURL && (
-                <div className="relative w-24 h-24 rounded-full mx-auto mb-4 overflow-hidden border-4 border-purple-200">
-                    <Image
-                        src={user.photoURL}
-                        alt="User Avatar"
-                        layout="fill"
-                        objectFit="cover"
-                    />
-                </div>
+                <Image
+                    src={user.photoURL}
+                    alt="User Avatar"
+                    width={96}
+                    height={96}
+                    className="rounded-full mx-auto mb-4 border-4 border-purple-200"
+                />
             )}
-            <h1 className="text-2xl font-bold text-gray-800">{user.displayName}</h1>
-            <p className="text-gray-500 mb-4">{user.email}</p>
+            <h1 className="text-2xl font-bold text-slate-800">Welcome, {user.displayName}!</h1>
+            <p className="text-slate-500 mb-6">{user.email}</p>
 
-            <div className="bg-purple-50 text-purple-700 font-bold text-lg rounded-lg py-2 px-4 my-6">
-                {/* Hiển thị '...' khi userProfile chưa có dữ liệu */}
-                Credit: {userProfile ? userProfile.credit : '...'}
+            <div className="bg-slate-100 border border-slate-200 rounded-lg py-3 px-4 my-6">
+                <span className="text-slate-600">Available Credits: </span>
+                <span className="font-bold text-purple-700 text-lg">
+                    {userProfile ? userProfile.credit : '...'}
+                </span>
             </div>
 
             <button
-                onClick={signOutUser}
-                className="w-full py-2 px-4 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors"
+                onClick={() => router.push('/library')}
+                className="cursor-pointer w-full mb-3 py-3 px-4 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
             >
-                Đăng xuất
+                Go to Your Library
+            </button>
+
+            <button
+                onClick={signOutUser}
+                className="cursor-pointer w-full py-2 px-4 bg-transparent text-slate-500 font-semibold rounded-lg hover:bg-slate-100 transition-colors"
+            >
+                Sign Out
             </button>
         </div>
     );
     };
 
-    // --- Return chính (giữ nguyên) ---
+    // --- Giao diện chính ---
     return (
-        <div className="min-h-screen flex flex-col bg-gray-50">
+        <div className="min-h-screen flex flex-col bg-slate-50">
             <Navbar />
-            <main className="flex-grow grid grid-cols-1 md:grid-cols-2">
-                {/* --- Cột bên trái: Background --- */}
-                <div className="hidden md:flex flex-col items-center justify-center p-12 bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
-                    <div className="max-w-md text-center">
-                        <h2 className="text-4xl font-bold mb-4">CaseSurf</h2>
-                        <p className="text-lg text-purple-200">
-                            Nền tảng phân tích và sáng tạo kịch bản video ngắn, giúp bạn tạo ra những nội dung triệu view.
-                        </p>
-                    </div>
-                </div>
-
-                {/* --- Cột bên phải: Nội dung chính --- */}
-                <div className="flex items-center justify-center p-8">
-                    {loading ? (
-                        <p>Đang tải...</p>
-                    ) : user ? (
-                        <UserProfileContent />
-                    ) : (
-                        <LoginContent />
-                    )}
-                </div>
+            <main className="flex-grow flex items-center justify-center p-4">
+                {loading ? (
+                    <p>Loading...</p> // Bạn có thể thay thế bằng một spinner
+                ) : user ? (
+                    <UserProfileContent />
+                ) : (
+                    <LoginContent />
+                )}
             </main>
         </div>
     );

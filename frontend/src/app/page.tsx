@@ -90,7 +90,7 @@ export default function Page() {
     };
     
     return (
-        <div className="bg-white min-h-screen">
+        <div className="bg-slate-50 min-h-screen">
             <Navbar />
             <div className="container mx-auto p-4 flex flex-col items-center text-center">
                 <Image src="/images/logo.svg" alt="CaseSurf Logo" width={500} height={150} className="mb-4" />
@@ -110,7 +110,8 @@ export default function Page() {
                 
                 {videos.length > 0 && (
                     <TikTokGrid 
-                        videos={videos.slice(0, 10)} // Chỉ hiển thị 10 video
+                        videos={videos.slice(0, 12
+                        )} // Chỉ hiển thị 10 video
                         router={router} 
                         cardMaxWidth="320px" // Giới hạn chiều rộng card trên trang chủ
                     />

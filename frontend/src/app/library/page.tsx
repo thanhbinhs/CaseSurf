@@ -139,14 +139,14 @@ export default function TiktokLibrary() {
                 </div>
 
                 <div className="flex flex-col md:flex-row items-center gap-4 mb-8 p-4 bg-white rounded-xl shadow-md sticky top-[70px] z-10 backdrop-blur-sm bg-white/80">
-                    <div className="relative w-full md:flex-1">
+                    <div className="relative w-full md:flex-1 text-black">
                         <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
                             placeholder="Search by keyword or TikTok URL"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full p-2.5 pl-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                            className="w-full  p-2.5 pl-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                         />
                     </div>
                     <div className="relative w-full md:w-auto">

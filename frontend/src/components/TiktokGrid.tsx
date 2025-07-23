@@ -24,6 +24,7 @@ interface TikTokGridProps {
     videos: TikTokData[];
     router: ReturnType<typeof useRouter>; 
     cardMaxWidth?: string;
+    
 }
 
 export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth = 'none' }: TikTokGridProps) {

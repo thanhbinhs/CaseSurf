@@ -4,7 +4,6 @@ import styled from 'styled-components';
 interface ButtonProps {
   children?: React.ReactNode;
   onClick?: () => void;
-
 }
 
 const Buttonv1: React.FC<ButtonProps> = ({ children, onClick }) => {
@@ -23,13 +22,16 @@ const StyledWrapper = styled.div`
    position: relative;
    padding: 0.5em 1.5em;
    border: 0;
-   background-color: #212121;
+   cursor: pointer;
+   /* --- CHANGE: Updated background to white --- */
+   background-color: #fff;
    font-family: "Roboto", Arial, "Segoe UI", sans-serif;
    font-size: 18px;
-   font-weight: 200;
-   color: #fff;
+   font-weight: 500; /* Increased font-weight for better readability */
+   /* --- CHANGE: Updated text color to dark grey --- */
+   color: #374151;
    z-index: 2;
-    cursor: pointer;
+   cursor: pointer;
   }
 
   button::after {
@@ -44,14 +46,14 @@ const StyledWrapper = styled.div`
    padding: var(--border-width);
    border-radius: var(--border-radius);
    background-image: conic-gradient(
-  		#488cfb,
-  		#29dbbc,
-  		#ddf505,
-  		#ff9f0e,
-  		#e440bb,
-  		#655adc,
-  		#488cfb
-  	);
+        #488cfb,
+        #29dbbc,
+        #ddf505,
+        #ff9f0e,
+        #e440bb,
+        #655adc,
+        #488cfb
+    );
    -webkit-mask-image: var(--m-i), var(--m-i);
    mask-image: var(--m-i), var(--m-i);
    -webkit-mask-origin: var(--m-o);
