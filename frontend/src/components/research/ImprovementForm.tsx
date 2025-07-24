@@ -35,6 +35,8 @@ type ImprovementChoices = {
 
 export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: ImprovementFormProps) => {
   const [improvementChoices, setImprovementChoices] = useState<ImprovementChoices>({ hook: false, script: false, cta: false });
+  // State mới cho ô nhập liệu tùy chỉnh
+  const [customPrompt, setCustomPrompt] = useState('');
 
   const handleCheckboxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = event.target;
@@ -42,6 +44,7 @@ export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: Improveme
   };
 
   const handleGenerateClick = () => {
+    // Lấy các yêu cầu từ checkbox
     const selectedCheckboxes = Object.entries(improvementChoices)
       .filter(([, value]) => value)
       .map(([key]) => {
@@ -52,13 +55,23 @@ export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: Improveme
               default: return key;
           }
       });
+    
+    // Lấy yêu cầu từ ô nhập liệu tùy chỉnh
+    const trimmedCustomPrompt = customPrompt.trim();
+    
+    // Kết hợp cả hai
+    const allImprovements = [...selectedCheckboxes];
+    if (trimmedCustomPrompt) {
+        allImprovements.push(trimmedCustomPrompt);
+    }
 
-    if (selectedCheckboxes.length > 0) {
-      onGenerateNewScript(selectedCheckboxes);
+    if (allImprovements.length > 0) {
+      onGenerateNewScript(allImprovements);
     }
   };
   
-  const noImprovementSelected = Object.values(improvementChoices).every(v => !v);
+  // Kiểm tra xem có tùy chọn nào được chọn không
+  const anyOptionSelected = Object.values(improvementChoices).some(v => v);
 
   const options = [
     { name: 'hook', label: 'Improve Hook', description: 'Sharpen the first 3 seconds.', icon: <HookIcon className="w-6 h-6 text-purple-600" /> },
@@ -88,7 +101,7 @@ export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: Improveme
                   name={item.name} 
                   checked={isChecked} 
                   onChange={handleCheckboxChange} 
-                  className="sr-only" // Ẩn checkbox gốc
+                  className="sr-only"
                 />
                 <div className={`flex-shrink-0 w-12 h-12 rounded-lg flex items-center justify-center ${
                     isChecked ? 'bg-purple-100' : 'bg-slate-100'
@@ -112,11 +125,28 @@ export const ImprovementForm = ({ onGenerateNewScript, isGenerating }: Improveme
             )
           })}
         </div>
+
+        {/* --- KHU VỰC NHẬP LIỆU TÙY CHỈNH --- */}
+        <div className={`transition-all duration-500 ease-in-out ${anyOptionSelected ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+            <div className="mb-8 text-black">
+                <label htmlFor="custom-prompt" className="block text-sm font-medium text-slate-700 mb-2">
+                    Add specific instructions (optional):
+                </label>
+                <textarea
+                    id="custom-prompt"
+                    rows={3}
+                    value={customPrompt}
+                    onChange={(e) => setCustomPrompt(e.target.value)}
+                    placeholder="e.g., 'Make the tone more humorous' or 'Add a surprising twist at the end'"
+                    className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition"
+                />
+            </div>
+        </div>
         
         <div className="text-center">
           <button
             onClick={handleGenerateClick}
-            disabled={noImprovementSelected || isGenerating}
+            disabled={!anyOptionSelected || isGenerating}
             className="w-full md:w-auto flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-8 rounded-full hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 mx-auto"
           >
             <SparklesIcon className="w-5 h-5" />

@@ -26,3 +26,7 @@ class TiktokDataResponse(BaseModel):
     Response model cho dữ liệu TikTok.
     """
     tiktok: List[TiktokData]
+
+class KeywordResponse(BaseModel):
+    keyword: str
+    count: int

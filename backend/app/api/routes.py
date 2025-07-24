@@ -1,8 +1,13 @@
+import os
+from typing import List
+from webbrowser import get
 from fastapi import APIRouter, HTTPException, status
 # Giả sử các file trên nằm trong cùng thư mục app
-from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokDataResponse
+from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokDataResponse, KeywordResponse
 from app.services.service import n8nService
 import httpx
+import mysql.connector
+from mysql.connector import Error
 
 router = APIRouter()
 # Tạo một instance của service để tái sử dụng
@@ -108,3 +113,47 @@ async def get_tiktok_data() -> TiktokDataResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
+    
+@router.get("/keywords", response_model=List[KeywordResponse], status_code=status.HTTP_200_OK)
+async def get_top_keywords():
+    connection = None
+    # Lấy thông tin kết nối từ biến môi trường
+    hostname = os.getenv("HOSTNAME")
+    db_host = os.getenv("DB_HOST")
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
+
+    try:
+        connection = mysql.connector.connect(
+            host=hostname,
+            database=db_host,
+            user=username,
+            password=password
+        )
+
+        if connection.is_connected():
+            cursor = connection.cursor()
+            
+            # --- BƯỚC 3: Cập nhật câu lệnh SQL ---
+            # Lấy cả 'keyword' và 'count', sắp xếp theo 'count' giảm dần và giới hạn 10 kết quả.
+            query = "SELECT keyword, count FROM keywords ORDER BY count DESC LIMIT 10"
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            # --- BƯỚC 4: Xử lý kết quả trả về ---
+            # Chuyển đổi kết quả từ tuple thành danh sách các dictionary (khớp với KeywordResponse).
+            keywords_with_count = [{"keyword": row[0], "count": row[1]} for row in rows]
+            
+            return keywords_with_count
+
+    except Error as e:
+        print(f"Lỗi kết nối đến cơ sở dữ liệu: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Không thể kết nối đến cơ sở dữ liệu."
+        )
+    finally:
+        if connection and connection.is_connected():
+            cursor.close()
+            connection.close()
+            print("Kết nối đến cơ sở dữ liệu đã được đóng.")

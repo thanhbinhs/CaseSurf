@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { TikTokEmbed } from 'react-social-media-embed';
+import { useRouter } from 'next/navigation';
 
 // --- Icons ---
 const HeartIcon = ({ className }: { className?: string }) => (<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className || "w-5 h-5"}><path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-4.5-4.309A6.5 6.5 0 019.5 2.846a6.5 6.5 0 015.366 9.752 20.759 20.759 0 01-4.5 4.309l-.019.01-.005.003h-.002z" /></svg>);
@@ -22,11 +22,12 @@ interface TikTokData {
 
 interface TikTokGridProps {
     videos: TikTokData[];
-    router: ReturnType<typeof useRouter>; 
+    router: ReturnType<typeof useRouter>; // Sửa lại: Dùng router
+    userNames: Record<string, string>;
     cardMaxWidth?: string;
 }
 
-export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth = 'none' }: TikTokGridProps) {
+export default function TikTokGrid({ videos: initialVideos, router, userNames, cardMaxWidth = 'none'  }: TikTokGridProps) {
     const [videos, setVideos] = useState(initialVideos);
     const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
 
@@ -41,6 +42,7 @@ export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth
         setVideos(initialVideos);
     }, [initialVideos]);
 
+    // Thêm lại hàm handleAnalyzeClick vào bên trong component
     const handleAnalyzeClick = async (video: TikTokData) => {
         const updatedVideos = videos.map(v =>
             v.url_tiktok === video.url_tiktok ? { ...v, click: (v.click || 0) + 1 } : v
@@ -89,8 +91,8 @@ export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth
 
     if (videos.length === 0) {
         return (
-            <div className="text-center py-10 text-slate-500">
-                <p>No videos found in the library.</p>
+            <div className="text-center py-10 text-slate-500 col-span-full">
+                <p>No videos match your search criteria.</p>
             </div>
         );
     }
@@ -99,11 +101,13 @@ export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth
         <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
             {videos.map(video => {
                 const isLiked = likedVideos.has(video.url_tiktok);
+                const userName = video.userId ? (userNames[video.userId] || '...') : 'Unknown';
+
                 return (
                     <div
                         key={video.url_tiktok}
-                        className="bg-white rounded-xl shadow-lg overflow-hidden w-full flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border border-slate-200"
-                        style={{ maxWidth: cardMaxWidth }}
+                        onClick={() => handleAnalyzeClick(video)} // Sửa lại: Gọi hàm nội bộ
+                        className="bg-white rounded-xl shadow-lg overflow-hidden w-full flex flex-col transition-all duration-300 hover:shadow-2xl hover:-translate-y-2 border border-slate-200 cursor-pointer"
                     >
                         <div className="w-full h-[420px] bg-slate-100">
                             <TikTokEmbed url={video.url_tiktok} width="100%" height={420} />
@@ -129,17 +133,17 @@ export default function TikTokGrid({ videos: initialVideos, router, cardMaxWidth
                                     <CursorArrowRaysIcon className="w-5 h-5 text-sky-500" />
                                     <span className="font-semibold text-slate-700">{video.click || 0}</span>
                                 </div>
-                                <div className="font-semibold text-slate-800">{video.userId || "Unknown"}</div>
-                                <button onClick={(e) => { e.stopPropagation(); handleLikeClick(video); }} className="flex items-center gap-1.5 cursor-pointer group" title="Like">
+                                <div className="font-semibold text-slate-800 truncate" title={userName}>{userName}</div>
+                                <button onClick={(e) => { e.stopPropagation(); handleLikeClick(video); }} className="flex items-center gap-1.5 group" title="Like">
                                     <HeartIcon className={`w-5 h-5 transition-colors ${isLiked ? 'text-red-500' : 'text-slate-400 group-hover:text-red-400'}`} />
                                     <span className="font-semibold text-slate-700">{video.tym || 0}</span>
                                 </button>
                             </div>
                             <div className="mt-4">
                                 <button 
-                                    onClick={() => handleAnalyzeClick(video)} 
+                                    onClick={(e) => { e.stopPropagation(); handleAnalyzeClick(video); }} // Sửa lại: Gọi hàm nội bộ
                                     disabled={!video.url_tiktok} 
-                                    className="w-full flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                 >
                                     <SparklesIcon className="w-5 h-5" />
                                     <span>{video.description ? "View & Improve" : "Analyze Script"}</span>

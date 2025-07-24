@@ -4,6 +4,10 @@ class Settings(BaseSettings):
     api_port: int = 8001
     debug: bool = True
     GOOGLE_API_KEY: str # Đảm bảo biến môi trường này được đặt
+    hostname: str
+    db_host: str
+    username: str 
+    password: str 
 
     # Đây là cách đúng và duy nhất để cấu hình trong Pydantic v2 trở lên
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")

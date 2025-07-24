@@ -26,6 +26,7 @@ export const signInWithGoogle = async (): Promise<User | null> => {
       if (!docSnap.exists()) {
         console.log("Creating new user profile in Firestore for:", user.uid);
         await setDoc(userDocRef, {
+            uid: user.uid,
           username: user.displayName,
           gmail: user.email,
           credit: 5, // Gán credit mặc định
