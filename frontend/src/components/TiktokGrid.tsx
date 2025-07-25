@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TikTokEmbed } from 'react-social-media-embed';
 import { useRouter } from 'next/navigation';
 
@@ -14,10 +14,15 @@ const SparklesIcon = ({ className }: { className?: string }) => (<svg xmlns="htt
 interface TikTokData {
     url_tiktok: string;
     description: string | null;
-    keyword: string[] | null;
     click: number | null;
     tym: number | null;
     userId: string | null;
+    niche?: string | null; // Thêm trường niche
+    content_angle?: string | null; // Thêm trường content_angle
+    hook_type?: string | null; // Thêm trường hook_type
+    cta_type?: string | null; // Thêm trường cta_type
+    trust_tactic?: string | null; // Thêm trường trust_tactic
+    product_type?: string | null; // Thêm trường product_type
 }
 
 interface TikTokGridProps {
@@ -27,9 +32,11 @@ interface TikTokGridProps {
     cardMaxWidth?: string;
 }
 
-export default function TikTokGrid({ videos: initialVideos, router, userNames, cardMaxWidth = 'none'  }: TikTokGridProps) {
+export default function TikTokGrid({ videos: initialVideos, router, userNames, cardMaxWidth = 'none' }: TikTokGridProps) {
     const [videos, setVideos] = useState(initialVideos);
     const [likedVideos, setLikedVideos] = useState<Set<string>>(new Set());
+    const [activePopover, setActivePopover] = useState<string | null>(null);
+    const popoverRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const storedLikes = localStorage.getItem('likedVideos');
@@ -51,7 +58,7 @@ export default function TikTokGrid({ videos: initialVideos, router, userNames, c
 
         fetch(`/api/videos/${encodeURIComponent(video.url_tiktok)}/click`, { method: 'POST' })
             .catch(err => console.error("Failed to update click count:", err));
-        
+
         const params = new URLSearchParams();
         params.set('url', video.url_tiktok);
         if (video.description) {
@@ -71,7 +78,7 @@ export default function TikTokGrid({ videos: initialVideos, router, userNames, c
             newLikedSet.add(video.url_tiktok);
         }
         setLikedVideos(newLikedSet);
-        
+
         const updatedVideos = videos.map(v => {
             if (v.url_tiktok === video.url_tiktok) {
                 return { ...v, tym: (v.tym || 0) + (isLiked ? -1 : 1) };
@@ -102,6 +109,14 @@ export default function TikTokGrid({ videos: initialVideos, router, userNames, c
             {videos.map(video => {
                 const isLiked = likedVideos.has(video.url_tiktok);
                 const userName = video.userId ? (userNames[video.userId] || '...') : 'Unknown';
+                const isPopoverOpen = activePopover === video.url_tiktok;
+                const videoAttributes = [
+                    { label: 'Content Angle', value: video.content_angle },
+                    { label: 'Hook Type', value: video.hook_type },
+                    { label: 'CTA Type', value: video.cta_type },
+                    { label: 'Trust Tactic', value: video.trust_tactic },
+                    { label: 'Product Type', value: video.product_type },
+                ].filter(attr => attr.value); // Chỉ giữ lại các thuộc tính có giá trị
 
                 return (
                     <div
@@ -112,21 +127,60 @@ export default function TikTokGrid({ videos: initialVideos, router, userNames, c
                         <div className="w-full h-[420px] bg-slate-100">
                             <TikTokEmbed url={video.url_tiktok} width="100%" height={420} />
                         </div>
-                        <div className="p-4 flex flex-col flex-grow bg-gradient-to-b from-white to-slate-50">
-                            {video.keyword && video.keyword.length > 0 ? (
-                                <div className="flex flex-wrap items-center gap-2 mb-3 h-10">
-                                    {video.keyword.slice(0, 2).map(kw => (
-                                        <div key={kw} className="flex items-center gap-1.5 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full">
-                                            <TagIcon className="w-3.5 h-3.5" />
-                                            <span className="text-xs font-semibold">{kw}</span>
+                        <div className="p-4 flex flex-col justify-center flex-grow bg-gradient-to-b from-white to-slate-50">
+
+                            {video.niche && (
+                                <div className="relative " ref={isPopoverOpen ? popoverRef : null}>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActivePopover(isPopoverOpen ? null : video.url_tiktok);
+                                        }}
+                                        className="flex items-center  cursor-pointer gap-1.5 bg-purple-50 text-purple-700 px-2.5 py-1 rounded-full hover:bg-purple-100 transition-colors"
+                                    >
+                                        <TagIcon className="w-3.5 h-3.5" />
+                                        <span className="text-xs font-semibold">{video.niche}</span>
+                                    </button>
+
+                                    {isPopoverOpen && (
+                                        // Sử dụng các class transition của Tailwind để tạo hiệu ứng "pop-up" mượt mà
+                                        // Trạng thái bắt đầu (khi chưa mở): opacity-0 scale-95
+                                        // Trạng thái kết thúc (khi mở): opacity-100 scale-100
+                                        <div
+                                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-72 origin-bottom rounded-md bg-slate-900 shadow-xl ring-1 ring-white/10 transition-all duration-200 ease-out"
+                                        // Thêm các class này vào thẻ cha để có hiệu ứng đầy đủ:
+                                        // data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95
+                                        // data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95
+                                        >
+                                            {/* Mũi tên chỉ xuống */}
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-x-8 border-x-transparent border-t-8 border-t-slate-900"></div>
+
+                                            <div className="p-3">
+                                                <h4 className="text-sm font-semibold text-slate-50 mb-2 pb-2 border-b border-slate-700">
+                                                    Video Attributes
+                                                </h4>
+
+                                                {videoAttributes.length > 0 ? (
+                                                    <dl className="space-y-2 text-sm">
+                                                        {videoAttributes.map(attr => (
+                                                            <div key={attr.label} className="grid grid-cols-2 items-center gap-4">
+                                                                <dt className="text-slate-400 truncate">{attr.label}</dt>
+                                                                <dd className="font-medium text-slate-100 text-right">{attr.value}</dd>
+                                                            </div>
+                                                        ))}
+                                                    </dl>
+                                                ) : (
+                                                    <p className="text-sm text-slate-500 italic">
+                                                        No additional attributes available.
+                                                    </p>
+                                                )}
+                                            </div>
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            ) : (
-                                <div className="h-10 mb-3 text-sm text-slate-400 italic flex items-center">No keywords available.</div>
                             )}
-                            
-                            <div className="flex-grow"/>
+
+                            <div className="flex-grow" />
 
                             <div className="flex items-center justify-between text-sm text-slate-500 pt-3 border-t border-slate-200">
                                 <div className="flex items-center gap-1.5" title="Analyze Clicks">
@@ -140,9 +194,9 @@ export default function TikTokGrid({ videos: initialVideos, router, userNames, c
                                 </button>
                             </div>
                             <div className="mt-4">
-                                <button 
+                                <button
                                     onClick={(e) => { e.stopPropagation(); handleAnalyzeClick(video); }} // Sửa lại: Gọi hàm nội bộ
-                                    disabled={!video.url_tiktok} 
+                                    disabled={!video.url_tiktok}
                                     className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                 >
                                     <SparklesIcon className="w-5 h-5" />

@@ -24,6 +24,7 @@ export const AnalysisReport = ({ report, onGenerateNewScript, onCopy, onEdit, is
     >
       <MarkdownRenderer text={report} />
       <ImprovementForm onGenerateNewScript={onGenerateNewScript} isGenerating={isGenerating} />
+      
     </CollapsibleCard>
   );
 };

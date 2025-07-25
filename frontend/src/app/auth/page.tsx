@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import Navbar from '@/components/Navbar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation'; // Thêm import
+import { Footer } from '@/components/Footer';
 
 // --- Icons ---
 const GoogleIcon = () => (
@@ -118,6 +119,7 @@ export default function Home() {
                     <LoginContent />
                 )}
             </main>
+            <Footer />
         </div>
     );
 }

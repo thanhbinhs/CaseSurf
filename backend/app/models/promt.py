@@ -16,10 +16,15 @@ class ImprovementRequest(BaseModel):
 class TiktokData(BaseModel):
     url_tiktok: str  # <-- TÊN TRƯỜNG GÂY LỖI
     description: str | None = None
-    keyword: List[str] | None = None
     click: int | None = None
     tym: int | None = None
     userId: str | None = None  # Thêm trường userId để xác định người dùng
+    niche: str | None = None  # Thêm trường niche để xác định ngách
+    content_angle: str | None = None  # Thêm trường content_angle để xác định góc nội dung
+    hook_type: str | None = None  # Thêm trường hook_type để xác định loại hook
+    cta_type: str | None = None  # Thêm trường cta_type để xác định loại CTA
+    trust_tactic: str | None = None  # Thêm trường trust_tactic để xác định chiến thuật tin cậy
+    product_type: str | None = None  # Thêm trường product_type để xác định loại sản phẩm
 
 class TiktokDataResponse(BaseModel):
     """

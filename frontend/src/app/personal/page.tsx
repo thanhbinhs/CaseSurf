@@ -10,6 +10,7 @@ import { collection, query, getDocs, orderBy } from 'firebase/firestore';
 import Navbar from '@/components/Navbar';
 
 import { TikTokEmbed } from 'react-social-media-embed';
+import { Footer } from '@/components/Footer';
 
 // Định nghĩa cấu trúc dữ liệu cho một script đã lưu
 interface SavedScript {
@@ -110,6 +111,7 @@ export default function PersonalPage() {
                     {renderContent()}
                 </div>
             </main>
+            <Footer />
         </div>
     );
 }

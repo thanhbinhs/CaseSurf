@@ -256,6 +256,7 @@ export const ResultDisplay = (props: ResultDisplayProps) => {
                         />
                     )}
                 </div>
+                {/*  */}
 
                 {/* Hiển thị thanh tiến trình hoặc lỗi khi đang tạo script mới */}
                 {isGeneratingNewScript && <ProgressBar isLoading={true} title="Creating New Script..." />}

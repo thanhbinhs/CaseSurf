@@ -13,6 +13,7 @@ import Navbar from '@/components/Navbar';
 import SearchBox from '@/components/SearchBox';
 import { ResultDisplay } from '@/components/research/ResultDisplay';
 import { doc, increment, updateDoc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { Footer } from '@/components/Footer';
 
 // --- Types ---
 type ImprovementRequest = {
@@ -23,15 +24,45 @@ type ImprovementRequest = {
 const TIKTOK_DATA_CACHE_KEY = 'tiktokDataCache';
 
 interface TikTokData {
-    id: number;
     url_tiktok: string;
     description: string | null;
+    click: number | null;
+    tym: number | null;
+    userId: string | null;
+    niche?: string | null; // Thêm trường ngách
+    content_angle?: string | null; // Thêm trường góc nội dung
+    hook_type?: string | null; // Thêm trường loại hook
+    cta_type?: string | null; // Thêm trường loại CTA
+    trust_tactic?: string | null; // Thêm trường chiến thuật tin cậy
+    product_type?: string | null; // Thêm trường loại sản phẩm
 }
 
 interface CachedTiktokData {
     videos: TikTokData[];
     timestamp: number;
 }
+
+// --- Notification Component ---
+interface NotificationProps {
+    message: string;
+    type: 'success' | 'error';
+    onClose: () => void;
+}
+
+const Notification: React.FC<NotificationProps> = ({ message, type, onClose }) => {
+    const bgColor = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+    
+    return (
+        <div className={`fixed bottom-5 right-5 flex items-center justify-between gap-4 p-4 rounded-lg text-white shadow-lg animate-slide-in-right ${bgColor}`}>
+            <span>{message}</span>
+            <button onClick={onClose} className="p-1 rounded-full hover:bg-white/20">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+    );
+};
 
 // Create a separate Client Component that uses useSearchParams
 function ResearchContent() {
@@ -53,6 +84,10 @@ function ResearchContent() {
     const [currentView, setCurrentView] = useState<'report' | 'script'>('report');
     const [isEditingReport, setIsEditingReport] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+
+     // --- STATE MỚI CHO THÔNG BÁO ---
+    const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
     
     // --- SỬA LỖI: Sử dụng useRef để theo dõi việc tìm kiếm ban đầu ---
     const initialSearchPerformed = useRef(false);
@@ -234,14 +269,27 @@ function ResearchContent() {
                 tiktokUrl: currentUrl,
                 savedAt: serverTimestamp(),
             }, { merge: true }); // Dùng merge để không ghi đè các trường khác nếu có
-            alert("Script saved successfully!");
+           // Hiển thị thông báo thành công
+            setNotification({ message: 'Script saved successfully!', type: 'success' });
         } catch (error) {
             console.error("Error saving script to Firestore:", error);
-            alert("Failed to save script.");
+            setNotification({ message: 'Failed to save script.', type: 'error' });
         } finally {
             setIsSaving(false);
         }
     };
+
+    // --- EFFECT ĐỂ TỰ ĐỘNG ẨN THÔNG BÁO ---
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => {
+                setNotification(null);
+            }, 5000); // 5 giây
+
+            // Dọn dẹp timer nếu component unmount hoặc notification thay đổi
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
 
     const handleRetryGenerate = () => {
         if (lastImprovements.length > 0) {
@@ -293,6 +341,14 @@ function ResearchContent() {
                 </div>
             </header>
 
+            {notification && (
+                <Notification
+                    message={notification.message}
+                    type={notification.type}
+                    onClose={() => setNotification(null)}
+                />
+            )}
+
             <main className="flex-grow flex items-start justify-center p-4 md:p-8">
                 <div className="w-full max-w-4xl mx-auto space-y-8">
                     <ResultDisplay
@@ -333,6 +389,7 @@ export default function ResearchPageWrapper() {
             <Suspense fallback={<div>Loading research tools...</div>}>
                 <ResearchContent />
             </Suspense>
+            <Footer />
         </div>
     );
 }

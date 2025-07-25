@@ -7,6 +7,7 @@ import TikTokGrid from '@/components/TiktokGrid';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { Footer } from '@/components/Footer';
 
 // --- Icons ---
 const MagnifyingGlassIcon = ({ className }: { className?: string }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>);
@@ -17,14 +18,21 @@ const TagIcon = ({ className }: { className?: string }) => (<svg xmlns="http://w
 const TIKTOK_DATA_CACHE_KEY = 'tiktokDataCache';
 const VIDEOS_PER_PAGE = 12;
 
+// Cấu trúc dữ liệu mới cho video
 interface TikTokData {
     id: number;
     url_tiktok: string;
     description: string | null;
-    keyword: string[] | null;
     click: number | null;
     tym: number | null;
     userId: string | null;
+    keyword?: string[] | null;
+    niche?: string | null;
+    content_angle?: string | null;
+    hook_type?: string | null;
+    cta_type?: string | null;
+    trust_tactic?: string | null;
+    product_type?: string | null;
 }
 
 interface KeywordData {
@@ -39,11 +47,9 @@ export default function TiktokLibrary() {
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOption, setSortOption] = useState('default');
-    
+
     const [topKeywords, setTopKeywords] = useState<KeywordData[]>([]);
     const [keywordsLoading, setKeywordsLoading] = useState(true);
-    
-    // State mới để lưu trữ cặp userId -> userName
     const [userNames, setUserNames] = useState<Record<string, string>>({});
 
     const { visibleItems, loadMoreItems, hasMore } = useInfiniteScroll(filteredVideos, VIDEOS_PER_PAGE);
@@ -59,7 +65,6 @@ export default function TiktokLibrary() {
         });
         if (node) observer.current.observe(node);
     }, [isInitialLoading, loadMoreItems, hasMore]);
-
 
     // Effect để tải dữ liệu video, keywords, và usernames
     useEffect(() => {
@@ -78,32 +83,32 @@ export default function TiktokLibrary() {
             finally { setIsInitialLoading(false); }
 
             // --- THÊM LOGIC: Lấy tên người dùng ---
- if (videosFromCache.length > 0) {
-    // Lấy danh sách các ID người dùng duy nhất
-    const userIds = [...new Set(videosFromCache.map(v => v.userId).filter(Boolean))] as string[];
+            if (videosFromCache.length > 0) {
+                // Lấy danh sách các ID người dùng duy nhất
+                const userIds = [...new Set(videosFromCache.map(v => v.userId).filter(Boolean))] as string[];
 
-    if (userIds.length > 0) {
-        try {
-            const usersRef = collection(db, 'users');
-            
-            // THAY ĐỔI: Tìm kiếm dựa trên trường 'uid' thay vì ID của document
-            const q = query(usersRef, where('uid', 'in', userIds));
+                if (userIds.length > 0) {
+                    try {
+                        const usersRef = collection(db, 'users');
 
-            const querySnapshot = await getDocs(q);
-            const namesMap: Record<string, string> = {};
+                        // THAY ĐỔI: Tìm kiếm dựa trên trường 'uid' thay vì ID của document
+                        const q = query(usersRef, where('uid', 'in', userIds));
 
-            querySnapshot.forEach((doc) => {
-                const userData = doc.data();
-                // Dùng userData.uid để làm key cho map
-                namesMap[userData.uid] = userData.username || 'Unknown User';
-            });
-            
-            setUserNames(namesMap);
-        } catch (error) {
-            console.error("Error fetching usernames:", error);
-        }
-    }
-}
+                        const querySnapshot = await getDocs(q);
+                        const namesMap: Record<string, string> = {};
+
+                        querySnapshot.forEach((doc) => {
+                            const userData = doc.data();
+                            // Dùng userData.uid để làm key cho map
+                            namesMap[userData.uid] = userData.username || 'Unknown User';
+                        });
+
+                        setUserNames(namesMap);
+                    } catch (error) {
+                        console.error("Error fetching usernames:", error);
+                    }
+                }
+            }
 
             // Tải keywords từ backend (giữ nguyên)
             try {
@@ -111,6 +116,7 @@ export default function TiktokLibrary() {
                 if (!response.ok) throw new Error('Failed to fetch keywords');
                 const data: KeywordData[] = await response.json();
                 setTopKeywords(data || []);
+
             } catch (error) {
                 console.error("Error fetching top keywords:", error);
             } finally {
@@ -119,31 +125,20 @@ export default function TiktokLibrary() {
         };
         fetchData();
     }, []);
-
-    // Effect để lọc và sắp xếp (giữ nguyên)
     useEffect(() => {
         let processedVideos = [...allVideos];
-        const lowercasedSearchTerm = searchTerm.toLowerCase();
+        // SỬA LỖI 1: Đảm bảo searchTerm luôn là một chuỗi trước khi gọi toLowerCase
+        const lowercasedSearchTerm = (searchTerm || '').toLowerCase();
 
-        if (searchTerm) {
-             const isTikTokUrl = (url: string) => {
-                try {
-                    new URL(url);
-                    return url.includes('tiktok.com');
-                } catch { return false; }
-            };
+        if (lowercasedSearchTerm) { // Sử dụng biến đã được xử lý
+            processedVideos = processedVideos.filter(video => {
+                const isUrlMatch = video.url_tiktok.toLowerCase().includes(lowercasedSearchTerm);
+                const isKeywordMatch = video.keyword?.some(kw => kw.toLowerCase().includes(lowercasedSearchTerm));
+                const isNicheMatch = video.niche?.toLowerCase().includes(lowercasedSearchTerm);
+                const isContentAngleMatch = video.content_angle?.toLowerCase().includes(lowercasedSearchTerm);
 
-            if (isTikTokUrl(searchTerm)) {
-                processedVideos = processedVideos.filter(video =>
-                    video.url_tiktok.toLowerCase() === lowercasedSearchTerm
-                );
-            } else {
-                processedVideos = processedVideos.filter(video =>
-                    video.keyword?.some(kw =>
-                        kw.toLowerCase().includes(lowercasedSearchTerm)
-                    )
-                );
-            }
+                return isUrlMatch || isKeywordMatch || isNicheMatch || isContentAngleMatch;
+            });
         }
 
         switch (sortOption) {
@@ -190,8 +185,8 @@ export default function TiktokLibrary() {
                             <MagnifyingGlassIcon className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                             <input
                                 type="text"
-                                placeholder="Search by keyword or TikTok URL"
-                                value={searchTerm}
+                                placeholder="Search by keyword, niche, or TikTok URL"
+                                value={searchTerm || ''}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                                 className="w-full p-3 pl-10 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition text-black"
                             />
@@ -213,8 +208,8 @@ export default function TiktokLibrary() {
                             </div>
                         ) : (
                             <div className="flex flex-wrap gap-2 items-center">
-                                <TagIcon className="w-5 h-5 text-slate-500 mr-2"/>
-                                {topKeywords.map(kw => (
+                                <TagIcon className="w-5 h-5 text-slate-500 mr-2" />
+                                {topKeywords.slice(0, 8).map(kw => (
                                     <button
                                         key={kw.keyword}
                                         onClick={() => setSearchTerm(kw.keyword)}
@@ -228,10 +223,10 @@ export default function TiktokLibrary() {
                     </div>
                 </div>
 
-                <TikTokGrid 
+                <TikTokGrid
                     videos={visibleItems}
                     router={router}
-                    userNames={userNames} 
+                    userNames={userNames}
                 />
 
                 <div ref={loadMoreRef} className="h-20 w-full flex justify-center items-center">
@@ -239,6 +234,7 @@ export default function TiktokLibrary() {
                     {!hasMore && filteredVideos.length > 0 && <span className="text-slate-400">You've reached the end.</span>}
                 </div>
             </div>
+            <Footer />
         </div>
     );
 }

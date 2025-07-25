@@ -1,9 +1,10 @@
 import os
-from typing import List
+import json
+from typing import Counter, List
 from webbrowser import get
 from fastapi import APIRouter, HTTPException, status
 # Giả sử các file trên nằm trong cùng thư mục app
-from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokDataResponse, KeywordResponse
+from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokData, TiktokDataResponse, KeywordResponse
 from app.services.service import n8nService
 import httpx
 import mysql.connector
@@ -12,6 +13,20 @@ from mysql.connector import Error
 router = APIRouter()
 # Tạo một instance của service để tái sử dụng
 service = n8nService()
+
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            hostname=os.getenv("HOSTNAME"),
+            db_host=os.getenv("DB_HOST"),
+            username=os.getenv("USERNAME"),
+            password=os.getenv("PASSWORD")
+        )
+        if connection.is_connected():
+            return connection
+    except Error as e:
+        raise HTTPException(status_code=500, detail="Không thể kết nối đến cơ sở dữ liệu.")
+    return None
 
 @router.post("/report", response_model=Report, status_code=status.HTTP_200_OK)
 async def create_report(request_data: ProductRequest) -> Report:
@@ -87,42 +102,11 @@ async def create_improvement_script(request_data: ImprovementRequest) -> str:
     
 @router.get("/tiktok_data", response_model=TiktokDataResponse, status_code=status.HTTP_200_OK)
 async def get_tiktok_data() -> TiktokDataResponse:
-    """
-    Endpoint để lấy dữ liệu TikTok.
-    """
-    # Giả lập dữ liệu TikTok
-    try:
-        tiktok_data = await service.get_tiktok_data()
-        return TiktokDataResponse(tiktok=tiktok_data)
-
-    except httpx.HTTPStatusError as e:
-        print(f"Lỗi HTTP từ n8n: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Dịch vụ bên ngoài trả về lỗi: {e.response.status_code}"
-        )
-    except httpx.RequestError as e:
-        print(f"Lỗi kết nối đến n8n: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Không thể kết nối đến dịch vụ lấy dữ liệu TikTok."
-        )
-    except Exception as e:
-        print(f"Lỗi không xác định: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-    
-@router.get("/keywords", response_model=List[KeywordResponse], status_code=status.HTTP_200_OK)
-async def get_top_keywords():
     connection = None
-    # Lấy thông tin kết nối từ biến môi trường
     hostname = os.getenv("HOSTNAME")
     db_host = os.getenv("DB_HOST")
     username = os.getenv("USERNAME")
     password = os.getenv("PASSWORD")
-
     try:
         connection = mysql.connector.connect(
             host=hostname,
@@ -132,20 +116,66 @@ async def get_top_keywords():
         )
 
         if connection.is_connected():
-            cursor = connection.cursor()
-            
-            # --- BƯỚC 3: Cập nhật câu lệnh SQL ---
-            # Lấy cả 'keyword' và 'count', sắp xếp theo 'count' giảm dần và giới hạn 10 kết quả.
-            query = "SELECT keyword, count FROM keywords ORDER BY count DESC LIMIT 10"
-            cursor.execute(query)
-            rows = cursor.fetchall()
+            with connection.cursor(dictionary=True) as cursor:
+                cursor.execute("SELECT url_tiktok, description, click, tym, userId, niche, content_angle, hook_type, cta_type, trust_tactic, product_type FROM tiktok_info")
+                rows = cursor.fetchall()
+            # Chuyển đổi danh sách dict sang TiktokData
+            rows = [TiktokData(**row) for row in rows]
 
-            # --- BƯỚC 4: Xử lý kết quả trả về ---
-            # Chuyển đổi kết quả từ tuple thành danh sách các dictionary (khớp với KeywordResponse).
-            keywords_with_count = [{"keyword": row[0], "count": row[1]} for row in rows]
-            
-            return keywords_with_count
+            if not rows:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Không tìm thấy dữ liệu TikTok."
+                )
+           
+            return TiktokDataResponse(tiktok=rows)
 
+    except Error as e:
+        # Ghi lại lỗi đầy đủ hơn để debug
+        print(f"Lỗi database hoặc xử lý dữ liệu: {e}")
+        # Bao gồm cả các lỗi validation của Pydantic
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Không thể xử lý yêu cầu. Lỗi: {e}"
+        )
+    finally:
+        if connection and connection.is_connected():
+            connection.close()
+            print("Kết nối đến cơ sở dữ liệu đã được đóng.")
+
+
+router.post("/url_tiktok", response_model=TiktokData, status_code=status.HTTP_200_OK)
+async def find_data_with_url(url_tiktok: str) -> TiktokData:
+    """
+    Endpoint để tìm kiếm dữ liệu TikTok theo URL.
+    """
+    connection = None
+    hostname = os.getenv("HOSTNAME")
+    db_host = os.getenv("DB_HOST")
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
+    
+    try:
+        connection = mysql.connector.connect(
+            host=hostname,
+            database=db_host,
+            user=username,
+            password=password
+        )
+        if connection.is_connected():
+            with connection.cursor(dictionary=True) as cursor:
+                # Sử dụng tham số hóa truy vấn để tránh SQL injection
+                cursor.execute("SELECT * FROM tiktok_info WHERE url_tiktok = %s", (url_tiktok,))
+                row = cursor.fetchone()
+
+            if row:
+                # Chuyển đổi từ dict sang TiktokData
+                return TiktokData(**row)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Không tìm thấy dữ liệu TikTok với URL đã cho."
+                )
     except Error as e:
         print(f"Lỗi kết nối đến cơ sở dữ liệu: {e}")
         raise HTTPException(
@@ -154,6 +184,64 @@ async def get_top_keywords():
         )
     finally:
         if connection and connection.is_connected():
-            cursor.close()
+            connection.close()
+            print("Kết nối đến cơ sở dữ liệu đã được đóng.")
+@router.get("/keywords", response_model=List[KeywordResponse], status_code=status.HTTP_200_OK)
+async def get_keywords() -> List[KeywordResponse]:
+    connection = None
+    hostname = os.getenv("HOSTNAME")
+    db_host = os.getenv("DB_HOST")
+    username = os.getenv("USERNAME")
+    password = os.getenv("PASSWORD")
+
+    tables_to_query = [
+            "niche", 
+            "content_angle", 
+            "hook_type", 
+            "cta_type", 
+            "trust_tactic", 
+            "product_type"
+        ]
+    
+    all_keywords = []
+
+    try:
+        # Kết nối đến cơ sở dữ liệu MySQL
+        connection = mysql.connector.connect(
+            host=hostname,
+            database=db_host,
+            user=username,
+            password=password
+        )
+        cursor = connection.cursor()
+
+        if connection.is_connected():
+            for table in tables_to_query:
+                cursor.execute(f"SELECT keyword FROM {table}")
+                rows = cursor.fetchall()
+                # Thêm tất cả từ khóa từ bảng hiện tại vào danh sách chung
+                all_keywords.extend([row[0] for row in rows])
+
+            if not all_keywords:
+                return [] # Trả về rỗng nếu không có từ khóa nào
+            keyword_counts = Counter(all_keywords)
+
+            # Chuyển đổi đối tượng Counter thành danh sách các dictionary
+            # Sắp xếp để lấy các từ khóa phổ biến nhất lên đầu
+            response_data = [
+                {"keyword": keyword, "count": count} 
+                for keyword, count in keyword_counts.most_common()
+            ]
+
+            print(f"Đã lấy và đếm {len(response_data)} từ khóa duy nhất từ cơ sở dữ liệu.")
+            return response_data
+    except Error as e:
+        print(f"Lỗi kết nối đến cơ sở dữ liệu: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Không thể kết nối đến cơ sở dữ liệu."
+        )
+    finally:
+        if connection and connection.is_connected():
             connection.close()
             print("Kết nối đến cơ sở dữ liệu đã được đóng.")

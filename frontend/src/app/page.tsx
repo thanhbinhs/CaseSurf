@@ -6,18 +6,24 @@ import Navbar from '@/components/Navbar';
 import SearchBox from '@/components/SearchBox';
 import TikTokGrid from '@/components/TiktokGrid';
 import Image from 'next/image';
+import { Footer } from '@/components/Footer';
 
 // --- Hằng số và Kiểu dữ liệu (giữ nguyên) ---
 const TIKTOK_DATA_CACHE_KEY = 'tiktokDataCache';
 
 interface TikTokData {
-    id: number;
     url_tiktok: string;
     description: string | null;
-    keyword: string[] | null;
     click: number | null;
     tym: number | null;
     userId: string | null;
+    keyword?: string[] | null; // Thêm trường keyword nếu cần
+    niche?: string | null; // Thêm trường ngách
+    content_angle?: string | null; // Thêm trường góc nội dung
+    hook_type?: string | null; // Thêm trường loại hook
+    cta_type?: string | null; // Thêm trường loại CTA
+    trust_tactic?: string | null; // Thêm trường chiến thuật tin cậy
+    product_type?: string | null; // Thêm trường loại sản phẩm
 }
 
 interface CachedTiktokData {
@@ -118,6 +124,7 @@ export default function Page() {
                     />
                 )}
             </div>
+            <Footer />
         </div>
     );
 }
