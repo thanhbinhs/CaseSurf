@@ -48,10 +48,6 @@ export default function TikTokGrid({ videos: initialVideos, userNames }: TikTokG
         );
         setVideos(updatedVideos);
 
-        // Gửi yêu cầu cập nhật lên server
-        fetch(`/api/videos/${encodeURIComponent(video.url_tiktok)}/click`, { method: 'POST' })
-            .catch(err => console.error("Failed to update click count:", err));
-
         // Điều hướng đến trang phân tích
         const params = new URLSearchParams();
         params.set('url', video.url_tiktok);
