@@ -113,7 +113,7 @@ function ResearchContent() {
     };
 
     const handleSearch = useCallback(async (videoUrl: string) => {
-        if (!videoUrl || !user) {
+        if ( !user) {
             setError("Bạn cần đăng nhập để sử dụng chức năng này.");
             setIsLoadingReport(false);
             return;
@@ -138,22 +138,6 @@ function ResearchContent() {
         } catch (e) {
             console.error("Error loading from Firestore:", e);
         }
-
-        // Kiểm tra cache trước
-        try {
-            const cachedItem = localStorage.getItem(TIKTOK_DATA_CACHE_KEY);
-            if (cachedItem) {
-                const cachedData: CachedTiktokData = JSON.parse(cachedItem);
-                const foundVideo = cachedData.videos.find(v => v.url_tiktok === videoUrl);
-                if (foundVideo?.description) {
-                    setReport(foundVideo.description);
-                    setIsLoadingReport(false);
-                    return;
-                }
-            }
-        } catch (e) {
-            console.error("Lỗi khi đọc cache:", e);
-        }
         
         // ... logic gọi API ...
         try {
@@ -164,13 +148,13 @@ function ResearchContent() {
             });
             if (!res.ok) {
                 const errorData = await res.json();
-                throw new Error(errorData.detail || 'Failed to generate report');
+                throw new Error('Đã xảy ra lỗi xin vui lòng thử lại sau ít phút');
             }
             const data = await res.json();
             setReport(data.text);
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Lỗi không xác định';
-            setError(`Đã xảy ra lỗi khi tạo báo cáo: ${errorMessage}`);
+            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
+            setError(errorMessage);
         } finally {
             setIsLoadingReport(false);
         }
@@ -236,7 +220,7 @@ function ResearchContent() {
                 body: JSON.stringify(payload),
             });
             const scriptText = await res.text();
-            if (!res.ok) throw new Error(scriptText || 'Failed to generate improved script');
+            if (!res.ok) throw new Error(scriptText || 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút');
 
             // Bước 4: Trừ credit sau khi gọi API thành công
             await updateDoc(userDocRef, {
@@ -247,8 +231,8 @@ function ResearchContent() {
             setImprovedScript(scriptText);
 
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
-            setScriptGenerationError(`Đã xảy ra lỗi: ${errorMessage}.`);
+            const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
+            setScriptGenerationError(`${errorMessage}.`);
         } finally {
             setIsGeneratingNewScript(false);
         }

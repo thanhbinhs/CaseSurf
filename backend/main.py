@@ -8,7 +8,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Hoặc ["http://localhost:3000"] nếu muốn hạn chế
+    allow_origins=["http://localhost:3000"],  # Hoặc ["http://localhost:3000"] nếu muốn hạn chế
     allow_credentials=True,
     allow_methods=["*"],  # Cho phép GET, POST, OPTIONS, v.v.
     allow_headers=["*"],  # Cho phép mọi header

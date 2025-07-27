@@ -136,8 +136,12 @@ export default function TiktokLibrary() {
                 const isKeywordMatch = video.keyword?.some(kw => kw.toLowerCase().includes(lowercasedSearchTerm));
                 const isNicheMatch = video.niche?.toLowerCase().includes(lowercasedSearchTerm);
                 const isContentAngleMatch = video.content_angle?.toLowerCase().includes(lowercasedSearchTerm);
+                const isHookTypeMatch = video.hook_type?.toLowerCase().includes(lowercasedSearchTerm);
+                const isCtaTypeMatch = video.cta_type?.toLowerCase().includes(lowercasedSearchTerm);
+                const isTrustTacticMatch = video.trust_tactic?.toLowerCase().includes(lowercasedSearchTerm);
+                const isProductTypeMatch = video.product_type?.toLowerCase().includes(lowercasedSearchTerm);
 
-                return isUrlMatch || isKeywordMatch || isNicheMatch || isContentAngleMatch;
+                return isUrlMatch || isKeywordMatch || isNicheMatch || isContentAngleMatch || isHookTypeMatch || isCtaTypeMatch || isTrustTacticMatch || isProductTypeMatch;
             });
         }
 
@@ -225,7 +229,6 @@ export default function TiktokLibrary() {
 
                 <TikTokGrid
                     videos={visibleItems}
-                    router={router}
                     userNames={userNames}
                 />
 

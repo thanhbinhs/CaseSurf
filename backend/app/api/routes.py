@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from typing import Counter, List
 from webbrowser import get
 from fastapi import APIRouter, HTTPException, status
@@ -17,9 +18,9 @@ service = n8nService()
 def get_db_connection():
     try:
         connection = mysql.connector.connect(
-            hostname=os.getenv("HOSTNAME"),
-            db_host=os.getenv("DB_HOST"),
-            username=os.getenv("USERNAME"),
+            host=os.getenv("HOSTNAME"),
+            database=os.getenv("DB_HOST"),
+            user=os.getenv("USERNAME"),
             password=os.getenv("PASSWORD")
         )
         if connection.is_connected():
@@ -32,38 +33,91 @@ def get_db_connection():
 async def create_report(request_data: ProductRequest) -> Report:
     """
     Endpoint để tạo báo cáo nghiên cứu cho một sản phẩm.
+    Nếu báo cáo đang được xử lý, endpoint sẽ đợi cho đến khi hoàn thành.
     """
+    connection = None
+    cursor = None
     try:
-        # 1. Gọi service để lấy nội dung báo cáo (dạng string)
-        report_text = await service.generate_report(
-            product=request_data.product,
-            userId=request_data.userId)
+        connection = get_db_connection()
+        if not connection:
+            raise HTTPException(status_code=500, detail="Không thể kết nối DB.")
+            
+        cursor = connection.cursor(dictionary=True)
+        
+        # Truy vấn ban đầu để kiểm tra sự tồn tại và trạng thái
+        query = "SELECT description, status FROM tiktok_info WHERE url_tiktok = %s"
+        cursor.execute(query, (request_data.product,))
+        existing_report = cursor.fetchone()
 
-        # 2. Đóng gói nội dung vào model `Report` và trả về
-        return Report(text=report_text)
+        # Nếu đã có bản ghi trong DB
+        if existing_report:
+            status = existing_report.get('status')
+            
+            # Bắt đầu vòng lặp kiểm tra nếu status là 'processing'
+            while status == 'processing':
+                print(f"Báo cáo cho {request_data.product} đang được xử lý, đợi 5 giây...")
+                time.sleep(5)  # Đợi 5 giây trước khi kiểm tra lại
 
-    except httpx.HTTPStatusError as e:
-        # Lỗi từ phía API của n8n (ví dụ: 4xx, 5xx)
-        print(f"Lỗi HTTP từ n8n: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Dịch vụ bên ngoài trả về lỗi: {e.response.status_code}"
-        )
-    except httpx.RequestError as e:
-        # Lỗi kết nối mạng (ví dụ: timeout, không thể kết nối)
-        print(f"Lỗi kết nối đến n8n: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Không thể kết nối đến dịch vụ tạo báo cáo."
-        )
+                # Truy vấn lại để cập nhật status
+                cursor.execute(query, (request_data.product,))
+                updated_report = cursor.fetchone()
+                if not updated_report:
+                    # Nếu bản ghi bị xóa đột ngột
+                    raise HTTPException(status_code=404, detail="Báo cáo không còn tồn tại trong quá trình xử lý.")
+                status = updated_report.get('status')
+
+            # Khi vòng lặp kết thúc, kiểm tra status cuối cùng
+            if status == 'completed':
+                print(f"Báo cáo cho {request_data.product} đã hoàn thành. Trả về kết quả.")
+                final_description = existing_report.get('description') or updated_report.get('description')
+                if final_description:
+                    return Report(text=final_description)
+                else:
+                    # Trường hợp hiếm: status là complete nhưng description lại rỗng
+                    raise HTTPException(status_code=500, detail="Báo cáo hoàn thành nhưng không có nội dung.")
+            else:
+                # Xử lý các trạng thái không mong muốn khác (ví dụ: 'failed')
+                raise HTTPException(status_code=500, detail=f"Báo cáo gặp lỗi với trạng thái: {status}")
+
+        # Nếu không có báo cáo trong DB, tạo mới
+        else:
+            print("Không tìm thấy báo cáo, đang tạo báo cáo mới...")
+            
+            # QUAN TRỌNG: Trước khi gọi service, bạn nên tạo một bản ghi mới với
+            # status='processing' để các request sau biết và chờ.
+            # Ví dụ:
+            # insert_query = "INSERT INTO tiktok_info (url_tiktok, status, userId) VALUES (%s, 'processing', %s)"
+            # cursor.execute(insert_query, (request_data.product, request_data.userId))
+            # connection.commit()
+
+            report_text = await service.generate_report(
+                product=request_data.product,
+                userId=request_data.userId
+            )
+
+            if not report_text or "VIDEO_NOT_FOUND" in report_text:
+                # Nếu tạo báo cáo lỗi, bạn có thể cập nhật status thành 'failed'
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Không tìm thấy thông tin cho video này."
+                )
+            
+            # Sau khi có report_text, cập nhật lại bản ghi với description và status='complete'
+            # Ví dụ:
+            # update_query = "UPDATE tiktok_info SET description = %s, status = 'complete' WHERE url_tiktok = %s"
+            # cursor.execute(update_query, (report_text, request_data.product))
+            # connection.commit()
+
+            return Report(text=report_text)
+
     except Exception as e:
-        # Các lỗi khác không mong muốn
-        print(f"Lỗi không xác định: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
-
+        print(f"Lỗi không xác định trong create_report: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if connection and connection.is_connected():
+            if cursor:
+                cursor.close()
+            connection.close()
 
 @router.post("/improvement-script", response_model=str, status_code=status.HTTP_200_OK)
 async def create_improvement_script(request_data: ImprovementRequest) -> str:

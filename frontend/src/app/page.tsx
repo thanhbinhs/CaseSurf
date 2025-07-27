@@ -118,9 +118,7 @@ export default function Page() {
                     <TikTokGrid 
                         videos={videos.slice(0, 12
                         )} // Chỉ hiển thị 10 video
-                        router={router} 
                         userNames={{}} // Giả sử không cần dữ liệu userNames ở đây
-                        cardMaxWidth="320px" // Giới hạn chiều rộng card trên trang chủ
                     />
                 )}
             </div>
