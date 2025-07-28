@@ -10,6 +10,7 @@ from app.services.service import n8nService
 import httpx
 import mysql.connector
 from mysql.connector import Error
+import asyncio
 
 router = APIRouter()
 # Tạo một instance của service để tái sử dụng
@@ -31,48 +32,47 @@ def get_db_connection():
 
 @router.post("/report", response_model=Report, status_code=status.HTTP_200_OK)
 async def create_report(request_data: ProductRequest) -> Report:
-    """
-    Endpoint để tạo báo cáo nghiên cứu cho một sản phẩm.
-    Nó sẽ gọi đến workflow n8n và trả về kết quả trực tiếp.
-    Toàn bộ logic kiểm tra và xử lý tương tranh được thực hiện bên trong n8n.
-    """
-    print(f"Nhận yêu cầu tạo báo cáo cho URL: {request_data.product}")
     
     try:
-        # Gọi service để lấy nội dung báo cáo. 
-        # Hàm này sẽ chờ cho đến khi workflow n8n hoàn thành và trả về kết quả.
+        connection = get_db_connection()
+        if not connection:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Could not connect to the database."
+            )
+        
+        with connection.cursor() as cursor:
+            # The fix is to add a comma after request_data.product
+            # This turns it into a tuple: (value,)
+            cursor.execute("SELECT * FROM tiktok_info WHERE url_tiktok = %s", (request_data.product,))
+            existing_product = cursor.fetchone()
+
+        if existing_product:
+            # Assuming column 1 is the report content
+            return Report(text=existing_product[1])  
+
+        # If not found, call n8n to generate the report
+        print(f"Creating report for product: {request_data.product} by user: {request_data.userId}")
+
         report_text = await service.generate_report(
             product=request_data.product,
             userId=request_data.userId
         )
-
-        # Kiểm tra nếu n8n trả về một thông báo lỗi cụ thể
-        if not report_text or "VIDEO_NOT_FOUND" in report_text:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Không tìm thấy thông tin cho video này."
-            )
-
-        # Đóng gói nội dung vào model `Report` và trả về cho frontend
         return Report(text=report_text)
-
     except httpx.HTTPStatusError as e:
-        # Xử lý lỗi nếu n8n trả về mã lỗi (ví dụ: 4xx, 5xx)
         print(f"Lỗi HTTP từ n8n: {e.response.status_code} - {e.response.text}")
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Dịch vụ bên ngoài trả về lỗi: {e.response.status_code}"
         )
     except httpx.RequestError as e:
-        # Xử lý lỗi kết nối mạng đến n8n
         print(f"Lỗi kết nối đến n8n: {e}")
         raise HTTPException(
             status_code=status.HTTP_504_GATEWAY_TIMEOUT,
             detail="Không thể kết nối đến dịch vụ tạo báo cáo."
         )
     except Exception as e:
-        # Xử lý các lỗi không mong muốn khác
-        print(f"Lỗi không xác định trong create_report: {e}")
+        print(f"Lỗi không xác định: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
@@ -84,6 +84,8 @@ async def create_improvement_script(request_data: ImprovementRequest) -> str:
     Endpoint để tạo kịch bản cải tiến dựa trên báo cáo gốc và các yếu tố cải tiến.
     """
     print("Nhận request tạo kịch bản cải tiến:", request_data)
+
+    connection = None
 
     try:
         script_text = await service.generate_script(

@@ -11,7 +11,8 @@ const nextConfig: NextConfig = {
         remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
+        // SỬA LỖI: Dùng wildcard (**) để cho phép TẤT CẢ các tên miền phụ
+        hostname: '**.googleusercontent.com',
         port: '',
         pathname: '/**',
       },
