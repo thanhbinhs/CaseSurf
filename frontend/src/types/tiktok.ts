@@ -13,4 +13,8 @@ export interface TikTokData {
     cta_type?: string | null;
     trust_tactic?: string | null;
     product_type?: string | null;
+    title?: string | null;
+    target_persona?: string | null;
+    script_framework?: string | null;
+    core_emotion?: string | null;
 }

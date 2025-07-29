@@ -1,23 +1,17 @@
-import type { NextConfig } from "next";
-import path from "path";
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Các cấu hình khác của bạn...
 
-const nextConfig: NextConfig = {
-  reactStrictMode: true,
-  webpack(config) {
-    config.resolve.alias['@'] = path.resolve(__dirname, 'src');
-    return config;
-  },
-  images:{
-        remotePatterns: [
+  images: {
+    remotePatterns: [
       {
         protocol: 'https',
-        // SỬA LỖI: Dùng wildcard (**) để cho phép TẤT CẢ các tên miền phụ
+        // Sửa lỗi: Dùng wildcard (**) để cho phép TẤT CẢ các tên miền phụ
         hostname: '**.googleusercontent.com',
-        port: '',
-        pathname: '/**',
       },
     ],
-  }
+  },
 };
 
-export default nextConfig;
+// Sửa lỗi: Sử dụng module.exports để đảm bảo tương thích
+module.exports = nextConfig;

@@ -1,16 +1,15 @@
-// components/research/ResultDisplay.tsx
-
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { AnalysisReport } from './AnalysisReport';
 import { ImprovedScript } from './ImprovedScript';
 import { ProgressBar } from '@/components/ProgressBar';
 import { AlertTriangleIcon } from '@/components/Icons';
-// MarkdownRenderer không còn cần thiết trong trình soạn thảo nữa, nhưng vẫn dùng ở nơi khác
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
+import { TikTokData } from '@/types/tiktok'; // Giả sử bạn có file type này
 
-// Định nghĩa một interface nhất quán cho tất cả các props
+// --- Định nghĩa Interface ---
 interface ResultDisplayProps {
+    video: TikTokData | null; // <<< THÊM: Prop để nhận dữ liệu video
     isLoadingReport: boolean;
     report: string;
     error: string | null;
@@ -18,26 +17,18 @@ interface ResultDisplayProps {
     improvedScript: string;
     scriptGenerationError: string | null;
     isSaving: boolean;
-
     onGenerateNewScript: (improvements: string[]) => void;
     onRetryGenerate: () => void;
     onCopy: (text: string) => void;
-
-    // Props cho việc sửa REPORT
     isEditingReport: boolean;
     onEditReport: () => void;
     onSaveReport: (newReport: string) => void;
     onCancelEditReport: () => void;
-
-    // Props cho việc sửa SCRIPT
     isEditingScript: boolean;
     onEditScript: () => void;
     onSaveEditScript: (newScript: string) => void;
     onCancelEditScript: () => void;
-
-    // Prop để lưu vào Firestore
     onSaveToFirestore: () => void;
-
     currentView: 'report' | 'script';
     onViewChange: (view: 'report' | 'script') => void;
 }
@@ -151,122 +142,154 @@ const DirectEditor = ({ title, initialContent, onSave, onCancel }: {
 };
 
 
+
+// --- Component phụ cho các trạng thái bên trong Card ---
+const InlineLoader = ({ text }: { text: string }) => (
+    <div className="flex flex-col items-center justify-center p-12 text-center">
+        <div className="w-8 h-8 border-4 border-slate-200 border-t-purple-600 rounded-full animate-spin"></div>
+        <p className="mt-4 text-slate-600 font-semibold">{text}</p>
+    </div>
+);
+
+const InlineError = ({ message, onRetry }: { message: string, onRetry: () => void }) => (
+    <div className="p-8 text-center bg-red-50/50 border-2 border-red-200 rounded-lg flex flex-col items-center gap-4">
+        <div className="flex items-center gap-2 text-red-700">
+            <AlertTriangleIcon className="w-6 h-6" />
+            <p className="font-semibold">An Error Occurred</p>
+        </div>
+        <p className="text-red-600 max-w-md">{message}</p>
+        <button onClick={onRetry} className="mt-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition">
+            Try Again
+        </button>
+    </div>
+);
+const VideoAttributesDisplay = ({ video }: { video: TikTokData }) => {
+    const videoAttributes = [
+        { label: 'Niche', value: video.niche },
+        { label: 'Content Angle', value: video.content_angle },
+        { label: 'Hook Type', value: video.hook_type },
+        { label: 'CTA Type', value: video.cta_type },
+        { label: 'Trust Tactic', value: video.trust_tactic },
+        { label: 'Product Type', value: video.product_type },
+        { label: 'Title', value: video.title },
+        { label: 'Target Persona', value: video.target_persona },
+        { label: 'Script Framework', value: video.script_framework },
+        { label: 'Core Emotion', value: video.core_emotion }
+    ].filter(attr => attr.value); // Chỉ hiển thị các thuộc tính có giá trị
+
+    if (videoAttributes.length === 0) {
+        return null; // Không hiển thị gì nếu không có thuộc tính
+    }
+
+    return (
+        <div className="mb-6 p-6 bg-slate-50 border border-slate-200 rounded-xl">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Video Attributes</h3>
+            <dl className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
+                {videoAttributes.map(attr => (
+                    <div key={attr.label}>
+                        <dt className="text-sm text-slate-500">{attr.label}</dt>
+                        <dd className="font-semibold text-slate-700 mt-1">{attr.value}</dd>
+                    </div>
+                ))}
+            </dl>
+        </div>
+    );
+};
+
+
 export const ResultDisplay = (props: ResultDisplayProps) => {
     const {
+        video, // <<< Lấy prop video
         isLoadingReport, report, error,
         isGeneratingNewScript, improvedScript, scriptGenerationError,
-        onGenerateNewScript, onRetryGenerate, onCopy,
-        isEditingReport, onEditReport, onSaveReport, onCancelEditReport,
-        isEditingScript, onEditScript, onSaveEditScript, onCancelEditScript,
-        onSaveToFirestore, isSaving, currentView, onViewChange
+        isEditingReport, isEditingScript,
+        currentView, onViewChange
     } = props;
 
-    if (isLoadingReport) {
-        return <ProgressBar isLoading={true} title="Analyzing URL..." />;
-    }
+    // --- Xử lý các trạng thái chiếm toàn bộ màn hình trước ---
+    if (isLoadingReport) return <ProgressBar isLoading={true} title="Analyzing URL..." />;
+    if (error) return (
+        <div className="text-center mt-16 p-6 bg-red-50 border border-red-200 rounded-lg">
+            <h2 className="text-2xl font-bold text-red-700">An Error Occurred</h2>
+            <p className="text-red-600 mt-2">{error}</p>
+        </div>
+    );
+    if (isEditingReport) return <DirectEditor title="Edit Analysis Report" initialContent={report} onSave={props.onSaveReport} onCancel={props.onCancelEditReport} />;
+    if (isEditingScript) return <DirectEditor title="Edit Script" initialContent={improvedScript} onSave={props.onSaveEditScript} onCancel={props.onCancelEditScript} />;
 
-    if (isEditingReport) {
-        return (
-            <DirectEditor
-                title="Edit Analysis Report"
-                initialContent={report}
-                onSave={onSaveReport}
-                onCancel={onCancelEditReport}
-            />
-        );
-    }
 
-    if (isEditingScript) {
-        return (
-            <DirectEditor
-                title="Edit Script"
-                initialContent={improvedScript}
-                onSave={onSaveEditScript}
-                onCancel={onCancelEditScript}
-            />
-        );
-    }
-
-        const TabButton = ({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) => (
+    // --- Component Nút Tab ---
+    const TabButton = ({ label, isActive, onClick }: { label: string, isActive: boolean, onClick: () => void }) => (
         <button
             onClick={onClick}
-            className={` cursor-pointer px-4 py-2 font-semibold text-sm sm:text-base transition-colors duration-200 ${isActive ? 'border-b-2 border-blue-600 text-blue-600' : 'text-slate-500 hover:text-slate-700 border-b-2 border-transparent'}`}
+            className={`px-4 py-3 font-semibold text-sm transition-colors duration-200 border-b-2 ${
+                isActive 
+                ? 'border-purple-600 text-purple-600' 
+                : 'text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-300'
+            }`}
         >
             {label}
         </button>
     );
 
-    if (error) {
-        return (
-            <div className="text-center mt-16 p-6 bg-red-50 border border-red-200 rounded-lg">
-                <h2 className="text-2xl font-bold text-red-700">An Error Occurred</h2>
-                <p className="text-red-600 mt-2">{error}</p>
-            </div>
-        );
-    }
+    // --- Component chính để hiển thị kết quả ---
+    const renderContent = () => {
+        if (isGeneratingNewScript) {
+            return <InlineLoader text="Generating new script..." />;
+        }
+        if (scriptGenerationError) {
+            return <InlineError message={scriptGenerationError} onRetry={props.onRetryGenerate} />;
+        }
 
-    if (isGeneratingNewScript) {
-        return <ProgressBar isLoading={true} title="Creating New Script..." />;
-    }
+        if (currentView === 'report') {
+            return (
+                <>
+                    {/* <<< THÊM: Hiển thị thuộc tính video ở đây */}
+                    {video && <VideoAttributesDisplay video={video} />}
+                    <AnalysisReport
+                        report={report}
+                        onGenerateNewScript={props.onGenerateNewScript}
+                        onCopy={props.onCopy}
+                        onEdit={props.onEditReport}
+                        isGenerating={isGeneratingNewScript}
+                    />
+                </>
+            );
+        }
 
-    if (scriptGenerationError) {
-        return (
-            <div className="text-center p-6 bg-red-50/50 border-2 border-red-200 rounded-lg flex flex-col items-center gap-4">
-                <div className="flex items-center gap-2 text-red-700">
-                    <AlertTriangleIcon className="w-6 h-6" />
-                    <p className="font-semibold">An Error Occurred</p>
-                </div>
-                <p className="text-red-600 max-w-md">{scriptGenerationError}</p>
-                <button onClick={onRetryGenerate} className="mt-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition">Try Again</button>
-            </div>
-        );
-    }
+        if (currentView === 'script' && improvedScript) {
+            return (
+                <ImprovedScript
+                    script={improvedScript}
+                    onCopy={props.onCopy}
+                    onEdit={props.onEditScript}
+                    onSave={props.onSaveToFirestore}
+                    isSaving={props.isSaving}
+                    onGenerateNewScript={props.onGenerateNewScript}
+                    isGenerating={isGeneratingNewScript}
+                />
+            );
+        }
+        return null;
+    };
 
     if (report) {
         return (
-            <div className="space-y-4">
-                {/* Chỉ hiển thị Tab khi có cả report và script */}
+            <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                {/* Header với các Tab */}
                 {improvedScript && (
-                    <div className="flex justify-center border-b border-slate-200 bg-white/50 backdrop-blur-sm rounded-t-lg sticky top-[80px] z-10">
-                        <TabButton label="Analysis Report" isActive={currentView === 'report'} onClick={() => onViewChange('report')} />
-                        <TabButton label="Improved Script" isActive={currentView === 'script'} onClick={() => onViewChange('script')} />
-                    </div>
+                    <header className="px-4 border-b border-slate-200">
+                        <nav className="flex justify-center -mb-px">
+                            <TabButton label="Analysis Report" isActive={currentView === 'report'} onClick={() => onViewChange('report')} />
+                            <TabButton label="Improved Script" isActive={currentView === 'script'} onClick={() => onViewChange('script')} />
+                        </nav>
+                    </header>
                 )}
                 
-                {/* Hiển thị nội dung dựa trên tab được chọn */}
-                <div className="transition-opacity duration-300">
-                    {currentView === 'report' && (
-                        <AnalysisReport
-                            report={report}
-                            onGenerateNewScript={props.onGenerateNewScript}
-                            onCopy={props.onCopy}
-                            onEdit={props.onEditReport}
-                            isGenerating={isGeneratingNewScript}
-                        />
-                    )}
-                    {currentView === 'script' && improvedScript && (
-                        <ImprovedScript
-                            script={improvedScript}
-                            onCopy={props.onCopy}
-                            onEdit={props.onEditScript}
-                            onSave={props.onSaveToFirestore}
-                            isSaving={props.isSaving}
-                            onGenerateNewScript={props.onGenerateNewScript}
-                            isGenerating={isGeneratingNewScript}
-                        />
-                    )}
+                {/* Khu vực hiển thị nội dung chính */}
+                <div className="p-2 sm:p-6 transition-opacity duration-300">
+                    {renderContent()}
                 </div>
-                {/*  */}
-
-                {/* Hiển thị thanh tiến trình hoặc lỗi khi đang tạo script mới */}
-                {isGeneratingNewScript && <ProgressBar isLoading={true} title="Creating New Script..." />}
-                {scriptGenerationError && (
-                    <div className="text-center p-6 bg-red-50/50 border-2 border-red-200 rounded-lg flex flex-col items-center gap-4">
-                        <div className="flex items-center gap-2 text-red-700"><AlertTriangleIcon className="w-6 h-6" /><p className="font-semibold">An Error Occurred</p></div>
-                        <p className="text-red-600 max-w-md">{scriptGenerationError}</p>
-                        <button onClick={props.onRetryGenerate} className="mt-2 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-6 rounded-lg transition">Try Again</button>
-                    </div>
-                )}
             </div>
         );
     }

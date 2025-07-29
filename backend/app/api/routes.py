@@ -3,7 +3,9 @@ import json
 import time
 from typing import Counter, List
 from webbrowser import get
-from fastapi import APIRouter, HTTPException, status
+
+import urllib
+from fastapi import APIRouter, HTTPException, status, Query
 # Giả sử các file trên nằm trong cùng thư mục app
 from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokData, TiktokDataResponse, KeywordResponse
 from app.services.service import n8nService
@@ -132,7 +134,7 @@ async def get_tiktok_data() -> TiktokDataResponse:
 
         if connection.is_connected():
             with connection.cursor(dictionary=True) as cursor:
-                cursor.execute("SELECT url_tiktok, description, click, tym, userId, niche, content_angle, hook_type, cta_type, trust_tactic, product_type FROM tiktok_info")
+                cursor.execute("SELECT * FROM tiktok_info")
                 rows = cursor.fetchall()
             # Chuyển đổi danh sách dict sang TiktokData
             rows = [TiktokData(**row) for row in rows]
@@ -158,39 +160,37 @@ async def get_tiktok_data() -> TiktokDataResponse:
             connection.close()
             print("Kết nối đến cơ sở dữ liệu đã được đóng.")
 
-
-router.post("/url_tiktok", response_model=TiktokData, status_code=status.HTTP_200_OK)
-async def find_data_with_url(url_tiktok: str) -> TiktokData:
+@router.get("/url_tiktok", response_model=TiktokData, status_code=status.HTTP_200_OK)
+async def find_data_with_url(
+    # Dùng Query() để FastAPI biết rằng đây là một tham số từ URL
+    url_tiktok: str = Query(..., alias="url_tiktok")
+) -> TiktokData:
     """
     Endpoint để tìm kiếm dữ liệu TikTok theo URL.
     """
     connection = None
-    hostname = os.getenv("HOSTNAME")
-    db_host = os.getenv("DB_HOST")
-    username = os.getenv("USERNAME")
-    password = os.getenv("PASSWORD")
+    cursor = None
+    
+    # FastAPI đã tự động giải mã URL, không cần xử lý thủ công
+    decoded_url = urllib.parse.unquote(url_tiktok)
     
     try:
-        connection = mysql.connector.connect(
-            host=hostname,
-            database=db_host,
-            user=username,
-            password=password
-        )
-        if connection.is_connected():
-            with connection.cursor(dictionary=True) as cursor:
-                # Sử dụng tham số hóa truy vấn để tránh SQL injection
-                cursor.execute("SELECT * FROM tiktok_info WHERE url_tiktok = %s", (url_tiktok,))
-                row = cursor.fetchone()
+        connection = get_db_connection()
+        cursor = connection.cursor(dictionary=True)
 
-            if row:
-                # Chuyển đổi từ dict sang TiktokData
-                return TiktokData(**row)
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Không tìm thấy dữ liệu TikTok với URL đã cho."
-                )
+        # Sử dụng tham số hóa truy vấn để tránh SQL injection
+        query = "SELECT * FROM tiktok_info WHERE url_tiktok = %s"
+        cursor.execute(query, (decoded_url,))
+        row = cursor.fetchone()
+
+        if row:
+            # Chuyển đổi từ dict sang TiktokData (giả sử model của bạn khớp)
+            return TiktokData(**row)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Không tìm thấy dữ liệu TikTok với URL đã cho."
+            )
     except Error as e:
         print(f"Lỗi kết nối đến cơ sở dữ liệu: {e}")
         raise HTTPException(
@@ -199,8 +199,10 @@ async def find_data_with_url(url_tiktok: str) -> TiktokData:
         )
     finally:
         if connection and connection.is_connected():
+            if cursor:
+                cursor.close()
             connection.close()
-            print("Kết nối đến cơ sở dữ liệu đã được đóng.")
+
 @router.get("/keywords", response_model=List[KeywordResponse], status_code=status.HTTP_200_OK)
 async def get_keywords() -> List[KeywordResponse]:
     connection = None
@@ -215,7 +217,10 @@ async def get_keywords() -> List[KeywordResponse]:
             "hook_type", 
             "cta_type", 
             "trust_tactic", 
-            "product_type"
+            "product_type",
+            "target_persona",
+            "script_framework",
+            "core_emotion"
         ]
     
     all_keywords = []

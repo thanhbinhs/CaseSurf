@@ -13,21 +13,6 @@ class n8nService:
         self.auth_token = os.getenv("N8N_AUTH_TOKEN")
 
     async def generate_report(self, product: str, userId: str) -> str:
-        """
-        Gọi một webhook của n8n để tạo báo cáo cho một sản phẩm.
-        Phương thức này sử dụng httpx để hoạt động bất đồng bộ.
-
-        Args:
-            product_name: Tên của sản phẩm cần tạo báo cáo.
-
-        Returns:
-            Một chuỗi chứa nội dung báo cáo thuần túy (plain text).
-
-        Raises:
-            httpx.HTTPStatusError: Nếu API trả về mã lỗi (4xx, 5xx).
-            httpx.RequestError: Nếu có lỗi kết nối mạng.
-            ValueError: Nếu phản hồi từ API là rỗng.
-        """
 
         webhook_url = "https://seedxwork.app.n8n.cloud/webhook/43e61f00-0b9d-43ac-bb05-b3fea922d521"
         headers: Dict[str, str] = {
@@ -43,13 +28,21 @@ class n8nService:
         async with httpx.AsyncClient(timeout=300.0) as client:
             print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {product}")
             response = await client.post(webhook_url, headers=headers, json=payload)
-            
-            # Tự động ném ra exception nếu status code là lỗi
+
+            # Luôn kiểm tra lỗi trước
             response.raise_for_status()
             
-            # Đảm bảo encoding là UTF-8 để xử lý tiếng Việt
+            # SỬA LỖI: Thiết lập encoding TRƯỚC KHI đọc .text
             response.encoding = 'utf-8'
+            
+            # Bây giờ mới đọc nội dung
             report_text = response.text
+            # --- THÊM CÁC DÒNG GỠ LỖI NÀY ---
+            print("--- N8N RAW RESPONSE ---")
+            print(f"Status Code: {response.status_code}")
+            print(f"Headers: {response.headers}")
+            print(f"Raw Body: {response.text}")
+            print("------------------------")
 
             if not report_text:
                 raise ValueError("Phản hồi từ n8n service là một chuỗi rỗng.")
@@ -99,7 +92,7 @@ class n8nService:
             print("Nhận phản hồi thành công từ n8n cho kịch bản cải tiến.")
             return script_text
         
-    async def get_tiktok_data(self) -> List[Dict[str, str]]:
+    async def get_tiktok_data(self) -> List[Dict]:
         """
         Gọi một webhook của n8n để lấy dữ liệu TikTok.
 

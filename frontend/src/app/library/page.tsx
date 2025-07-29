@@ -8,6 +8,7 @@ import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Footer } from '@/components/Footer';
+import { TikTokData } from '@/types/tiktok';
 
 // --- Icons ---
 const MagnifyingGlassIcon = ({ className }: { className?: string }) => (<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}><path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" /></svg>);
@@ -18,22 +19,7 @@ const TagIcon = ({ className }: { className?: string }) => (<svg xmlns="http://w
 const TIKTOK_DATA_CACHE_KEY = 'tiktokDataCache';
 const VIDEOS_PER_PAGE = 12;
 
-// Cấu trúc dữ liệu mới cho video
-interface TikTokData {
-    id: number;
-    url_tiktok: string;
-    description: string | null;
-    click: number | null;
-    tym: number | null;
-    userId: string | null;
-    keyword?: string[] | null;
-    niche?: string | null;
-    content_angle?: string | null;
-    hook_type?: string | null;
-    cta_type?: string | null;
-    trust_tactic?: string | null;
-    product_type?: string | null;
-}
+
 
 interface KeywordData {
     keyword: string;
@@ -133,15 +119,19 @@ export default function TiktokLibrary() {
         if (lowercasedSearchTerm) { // Sử dụng biến đã được xử lý
             processedVideos = processedVideos.filter(video => {
                 const isUrlMatch = video.url_tiktok.toLowerCase().includes(lowercasedSearchTerm);
-                const isKeywordMatch = video.keyword?.some(kw => kw.toLowerCase().includes(lowercasedSearchTerm));
                 const isNicheMatch = video.niche?.toLowerCase().includes(lowercasedSearchTerm);
                 const isContentAngleMatch = video.content_angle?.toLowerCase().includes(lowercasedSearchTerm);
                 const isHookTypeMatch = video.hook_type?.toLowerCase().includes(lowercasedSearchTerm);
                 const isCtaTypeMatch = video.cta_type?.toLowerCase().includes(lowercasedSearchTerm);
                 const isTrustTacticMatch = video.trust_tactic?.toLowerCase().includes(lowercasedSearchTerm);
                 const isProductTypeMatch = video.product_type?.toLowerCase().includes(lowercasedSearchTerm);
+                // Thêm các trường mới vào điều kiện lọc
+                const isTitleMatch = video.title?.toLowerCase().includes(lowercasedSearchTerm);
+                const isTargetPersonaMatch = video.target_persona?.toLowerCase().includes(lowercasedSearchTerm);
+                const isScriptFrameworkMatch = video.script_framework?.toLowerCase().includes(lowercasedSearchTerm);
+                const isCoreEmotionMatch = video.core_emotion?.toLowerCase().includes(lowercasedSearchTerm);
 
-                return isUrlMatch || isKeywordMatch || isNicheMatch || isContentAngleMatch || isHookTypeMatch || isCtaTypeMatch || isTrustTacticMatch || isProductTypeMatch;
+                return isUrlMatch || isNicheMatch || isContentAngleMatch || isHookTypeMatch || isCtaTypeMatch || isTrustTacticMatch || isProductTypeMatch || isTitleMatch || isTargetPersonaMatch || isScriptFrameworkMatch || isCoreEmotionMatch;
             });
         }
 
@@ -153,7 +143,6 @@ export default function TiktokLibrary() {
                 processedVideos.sort((a, b) => (b.tym || 0) - (a.tym || 0));
                 break;
             default:
-                processedVideos.sort((a, b) => a.id - b.id);
                 break;
         }
         setFilteredVideos(processedVideos);

@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react'; // Thêm useRef
+import React, { useState, useEffect, useCallback, Suspense, useRef, use } from 'react'; // Thêm useRef
 import { useSearchParams } from 'next/navigation';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -35,6 +35,10 @@ interface TikTokData {
     cta_type?: string | null; // Thêm trường loại CTA
     trust_tactic?: string | null; // Thêm trường chiến thuật tin cậy
     product_type?: string | null; // Thêm trường loại sản phẩm
+    title?: string | null; // Thêm trường tiêu đề
+    target_persona?: string | null; // Thêm trường persona mục tiêu
+    script_framework?: string | null; // Thêm trường khung kịch bản
+    core_emotion?: string | null; // Thêm trường cảm xúc cốt lõi
 }
 
 interface CachedTiktokData {
@@ -73,7 +77,8 @@ function ResearchContent() {
     const [report, setReport] = useState<string>('');
     const [isLoadingReport, setIsLoadingReport] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const { user } = useAuth();
+    const { user } = useAuth();// --- STATE MỚI: Lưu trữ dữ liệu chi tiết của video ---
+    const [videoData, setVideoData] = useState<TikTokData | null>(null);
 
     // ... các state khác ...
     const [lastImprovements, setLastImprovements] = useState<string[]>([]);
@@ -102,6 +107,7 @@ function ResearchContent() {
         setIsEditingScript(false);
         setCurrentView('report');
         setIsEditingReport(false);
+        setVideoData(null);
     }, []);
 
     const encodeUrlForId = (url: string) => {
@@ -111,9 +117,8 @@ function ResearchContent() {
         // và loại bỏ ký tự đệm '='
         return base64.replace(/\//g, '_').replace(/\+/g, '-').replace(/=/g, '');
     };
-
-    const handleSearch = useCallback(async (videoUrl: string) => {
-        if ( !user) {
+const handleSearch = useCallback(async (videoUrl: string) => {
+        if (!user) {
             setError("Bạn cần đăng nhập để sử dụng chức năng này.");
             setIsLoadingReport(false);
             return;
@@ -121,7 +126,21 @@ function ResearchContent() {
         setIsLoadingReport(true);
         resetAllState();
 
-        // ... logic tìm kiếm trong Firestore và cache ...
+        // --- CẬP NHẬT: Tìm kiếm video chi tiết trong cache trước ---
+        try {
+            const cachedItem = localStorage.getItem(TIKTOK_DATA_CACHE_KEY);
+            if (cachedItem) {
+                const cachedData: CachedTiktokData = JSON.parse(cachedItem);
+                const foundVideo = cachedData.videos.find(v => v.url_tiktok === videoUrl);
+                if (foundVideo) {
+                    setVideoData(foundVideo); // Lưu lại dữ liệu video chi tiết
+                }
+            }
+        } catch (e) {
+            console.error("Lỗi khi đọc cache:", e);
+        }
+
+        // Logic tìm kiếm trong Firestore
         try {
             const docId = encodeUrlForId(videoUrl);
             const docRef = doc(db, 'users', user.uid, 'saved_scripts', docId);
@@ -139,7 +158,7 @@ function ResearchContent() {
             console.error("Error loading from Firestore:", e);
         }
         
-        // ... logic gọi API ...
+        // Logic gọi API
         try {
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/report`, {
                 method: 'POST',
@@ -158,8 +177,20 @@ function ResearchContent() {
         } finally {
             setIsLoadingReport(false);
         }
-    }, [user, resetAllState]);
 
+        try{
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/url_tiktok?url_tiktok=${encodeURIComponent(videoUrl)}`);
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.message || 'Failed to fetch TikTok data');
+            }
+            const data: TikTokData = await res.json();
+            setVideoData(data); // Lưu lại dữ liệu video chi tiết
+        }catch (err) {
+            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
+            setError(errorMessage);
+        }
+    }, [user, resetAllState]);
     // --- SỬA LỖI: Tách logic tìm kiếm ban đầu ra khỏi logic tìm kiếm thủ công ---
     useEffect(() => {
         // Chỉ thực hiện tìm kiếm ban đầu MỘT LẦN khi có đủ thông tin
@@ -310,7 +341,7 @@ function ResearchContent() {
         setImprovedScript(newScript);
         setIsEditingScript(false);
     };
-
+    
 
     return (
         <>
@@ -336,7 +367,7 @@ function ResearchContent() {
             <main className="flex-grow flex items-start justify-center p-4 md:p-8">
                 <div className="w-full max-w-4xl mx-auto space-y-8">
                     <ResultDisplay
-                        // ... truyền props như cũ ...
+                        video={videoData}
                         isLoadingReport={isLoadingReport}
                         report={report}
                         error={error}
