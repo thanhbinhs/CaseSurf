@@ -1,5 +1,5 @@
 import httpx
-from typing import Dict, List
+from typing import Dict, List, Any
 import os
 
 
@@ -12,43 +12,34 @@ class n8nService:
         # Lấy API key từ biến môi trường hoặc cấu hình
         self.auth_token = os.getenv("N8N_AUTH_TOKEN")
 
-    async def generate_report(self, product: str, userId: str) -> str:
-
-        webhook_url = "https://seedxwork.app.n8n.cloud/webhook/43e61f00-0b9d-43ac-bb05-b3fea922d521"
-        headers: Dict[str, str] = {
+    async def generate_report(self, product: str, userId: str) -> List[Dict[str, Any]]:
+        """
+        Gọi webhook n8n và trả về toàn bộ danh sách (list) đối tượng đã được phân tích từ JSON.
+        """
+        headers = {
             "Content-Type": "application/json",
             "N8N_AUTH_TOKEN": self.auth_token
         }
-
-        print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {headers}")
-        payload = {"product": product}
-        payload["userId"] = userId
-
-        # Sử dụng AsyncClient của httpx để gửi request bất đồng bộ
+        payload = {"product": product, "userId": userId}
+        webhook_url = "https://seedxwork.app.n8n.cloud/webhook/43e61f00-0b9d-43ac-bb05-b3fea922d521"
         async with httpx.AsyncClient(timeout=300.0) as client:
-            print(f"Đang gửi yêu cầu đến n8n cho sản phẩm: {product}")
             response = await client.post(webhook_url, headers=headers, json=payload)
-
-            # Luôn kiểm tra lỗi trước
             response.raise_for_status()
-            
-            # SỬA LỖI: Thiết lập encoding TRƯỚC KHI đọc .text
-            response.encoding = 'utf-8'
-            
-            # Bây giờ mới đọc nội dung
-            report_text = response.text
-            # --- THÊM CÁC DÒNG GỠ LỖI NÀY ---
-            print("--- N8N RAW RESPONSE ---")
-            print(f"Status Code: {response.status_code}")
-            print(f"Headers: {response.headers}")
-            print(f"Raw Body: {response.text}")
-            print("------------------------")
 
-            if not report_text:
-                raise ValueError("Phản hồi từ n8n service là một chuỗi rỗng.")
+            # 1. Phân tích phản hồi dưới dạng JSON
+            data = response.json()
+
             
-            print("Nhận phản hồi thành công từ n8n.")
-            return report_text
+            # 2. In ra để kiểm tra cấu trúc
+            print("Đã nhận JSON từ n8n:", data)
+
+            # 3. Kiểm tra xem có phải là danh sách không
+            if not isinstance(data, list):
+                raise ValueError("Phản hồi từ n8n không phải là một danh sách.")
+
+            # 4. Trả về TOÀN BỘ danh sách
+            return data
+
         
     async def generate_script(self, base_text: str, improvements: List[str], is_iterative: bool) -> str:
         """

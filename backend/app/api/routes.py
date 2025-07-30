@@ -5,10 +5,10 @@ from typing import Counter, List
 from webbrowser import get
 
 import urllib
+from app.services.service import n8nService
 from fastapi import APIRouter, HTTPException, status, Query
 # Giả sử các file trên nằm trong cùng thư mục app
-from app.models.promt import ImprovementRequest, ProductRequest, Report, TiktokData, TiktokDataResponse, KeywordResponse
-from app.services.service import n8nService
+from app.models.promt import CombinedReportResponse, ImprovementRequest, ProductRequest,TiktokData, TiktokDataResponse, KeywordResponse
 import httpx
 import mysql.connector
 from mysql.connector import Error
@@ -32,53 +32,84 @@ def get_db_connection():
         raise HTTPException(status_code=500, detail="Không thể kết nối đến cơ sở dữ liệu.")
     return None
 
-@router.post("/report", response_model=Report, status_code=status.HTTP_200_OK)
-async def create_report(request_data: ProductRequest) -> Report:
-    
+@router.post("/report", response_model=CombinedReportResponse, status_code=status.HTTP_200_OK)
+async def create_report(request_data: ProductRequest) -> CombinedReportResponse:
+    connection = None
+    cursor = None
     try:
         connection = get_db_connection()
-        if not connection:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Could not connect to the database."
+        cursor = connection.cursor(dictionary=True)
+
+        # Bước 1: Kiểm tra xem báo cáo đã hoàn thành và tồn tại trong DB chưa
+        query = "SELECT * FROM tiktok_info WHERE url_tiktok = %s AND status = 'completed'"
+        cursor.execute(query, (request_data.product,))
+        existing_video_data = cursor.fetchone()
+
+        # Nếu có, và đã có description (báo cáo), trả về ngay
+        if existing_video_data and existing_video_data.get('description'):
+            print(f"Báo cáo và dữ liệu cho {request_data.product} đã tồn tại. Trả về từ DB.")
+            
+            # Chuyển đổi chuỗi JSON 'keyword' thành danh sách nếu có
+            if existing_video_data.get('keyword') and isinstance(existing_video_data['keyword'], str):
+                try:
+                    existing_video_data['keyword'] = json.loads(existing_video_data['keyword'])
+                except json.JSONDecodeError:
+                    existing_video_data['keyword'] = []
+            
+            return CombinedReportResponse(
+                report_text=existing_video_data['description'],
+                video_data=TiktokData(**existing_video_data)
             )
+
+        # Bước 2: Nếu chưa có, gọi service n8n
+        print(f"Đang tạo báo cáo cho {request_data.product}...")
         
-        with connection.cursor() as cursor:
-            # The fix is to add a comma after request_data.product
-            # This turns it into a tuple: (value,)
-            cursor.execute("SELECT * FROM tiktok_info WHERE url_tiktok = %s", (request_data.product,))
-            existing_product = cursor.fetchone()
-
-        if existing_product:
-            # Assuming column 1 is the report content
-            return Report(text=existing_product[1])  
-
-        # If not found, call n8n to generate the report
-        print(f"Creating report for product: {request_data.product} by user: {request_data.userId}")
-
-        report_text = await service.generate_report(
+        # --- SỬA LỖI: Xử lý đúng cấu trúc dữ liệu trả về từ service ---
+        # service.generate_report giờ trả về một danh sách các dictionary
+        n8n_result_list = await service.generate_report(
             product=request_data.product,
             userId=request_data.userId
         )
-        return Report(text=report_text)
+
+        # Kiểm tra xem danh sách có hợp lệ không
+        if not n8n_result_list or len(n8n_result_list) == 0:
+            raise HTTPException(status_code=500, detail="Phản hồi từ n8n không hợp lệ hoặc rỗng.")
+
+        # Lấy đối tượng đầu tiên từ danh sách
+        n8n_data_dict = n8n_result_list[0]
+        
+        report_text = n8n_data_dict.get('text')
+        if not report_text:
+            raise HTTPException(status_code=500, detail="Không tìm thấy nội dung báo cáo trong phản hồi từ n8n.")
+
+        # Bước 3: Tạo đối tượng TiktokData từ kết quả của n8n
+        # Đảm bảo các trường bắt buộc như url_tiktok và userId được cung cấp
+        video_data_obj = TiktokData(
+            url_tiktok=request_data.product,
+            userId=request_data.userId,
+            description=report_text, # Gán description từ report_text
+            **n8n_data_dict # Giải nén các trường còn lại từ n8n
+        )
+
+        # Lưu ý: Workflow n8n của bạn vẫn NÊN cập nhật kết quả vào DB.
+
+        # Bước 4: Đóng gói và trả về cho frontend
+        return CombinedReportResponse(
+            report_text=report_text,
+            video_data=video_data_obj
+        )
+
     except httpx.HTTPStatusError as e:
-        print(f"Lỗi HTTP từ n8n: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Dịch vụ bên ngoài trả về lỗi: {e.response.status_code}"
-        )
+        raise HTTPException(status_code=502, detail=f"Lỗi từ dịch vụ bên ngoài: {e.response.status_code}")
     except httpx.RequestError as e:
-        print(f"Lỗi kết nối đến n8n: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
-            detail="Không thể kết nối đến dịch vụ tạo báo cáo."
-        )
+        raise HTTPException(status_code=504, detail="Không thể kết nối đến dịch vụ tạo báo cáo.")
     except Exception as e:
-        print(f"Lỗi không xác định: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if connection and connection.is_connected():
+            if cursor:
+                cursor.close()
+            connection.close()
 
 @router.post("/improvement-script", response_model=str, status_code=status.HTTP_200_OK)
 async def create_improvement_script(request_data: ImprovementRequest) -> str:
@@ -265,3 +296,47 @@ async def get_keywords() -> List[KeywordResponse]:
         if connection and connection.is_connected():
             connection.close()
             print("Kết nối đến cơ sở dữ liệu đã được đóng.")
+
+    @router.get("/video", response_model=TiktokData, status_code=status.HTTP_200_OK)
+    async def get_video_by_url(
+        # Dùng Query() để FastAPI biết rằng đây là một tham số từ URL
+        url_tiktok: str = Query(..., description="The full URL of the TikTok video to fetch.")
+    ) -> TiktokData:
+        """
+        Endpoint để tìm kiếm và trả về dữ liệu chi tiết của một video TikTok theo URL.
+        """
+        connection = None
+        cursor = None
+        try:
+            connection = get_db_connection()
+            cursor = connection.cursor(dictionary=True)
+
+            query = "SELECT * FROM tiktok_info WHERE url_tiktok = %s"
+            cursor.execute(query, (url_tiktok,))
+            video_data = cursor.fetchone()
+
+            if video_data:
+                # Chuyển đổi chuỗi JSON 'keyword' thành danh sách nếu có
+                if video_data.get('keyword') and isinstance(video_data['keyword'], str):
+                    try:
+                        video_data['keyword'] = json.loads(video_data['keyword'])
+                    except json.JSONDecodeError:
+                        video_data['keyword'] = []
+                
+                return TiktokData(**video_data)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Không tìm thấy dữ liệu TikTok với URL đã cho."
+                )
+        except Error as e:
+            print(f"Lỗi cơ sở dữ liệu khi tìm video: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Lỗi truy vấn cơ sở dữ liệu."
+            )
+        finally:
+            if connection and connection.is_connected():
+                if cursor:
+                    cursor.close()
+                connection.close()

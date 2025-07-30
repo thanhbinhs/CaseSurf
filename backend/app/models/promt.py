@@ -6,8 +6,7 @@ class ProductRequest(BaseSettings):
     product: str
     userId: str  # Thêm userId để xác định người dùng
 
-class Report(BaseSettings):
-    text: str
+
 class ImprovementRequest(BaseModel):
     base_text: str  # Đổi tên cho rõ ràng
     improvements: List[str]
@@ -39,3 +38,7 @@ class TiktokDataResponse(BaseModel):
 class KeywordResponse(BaseModel):
     keyword: str
     count: int
+
+class CombinedReportResponse(BaseModel):
+    report_text: str
+    video_data: TiktokData # Sử dụng lại model TiktokData đã có

@@ -117,7 +117,7 @@ function ResearchContent() {
         // và loại bỏ ký tự đệm '='
         return base64.replace(/\//g, '_').replace(/\+/g, '-').replace(/=/g, '');
     };
-const handleSearch = useCallback(async (videoUrl: string) => {
+    const handleSearch = useCallback(async (videoUrl: string) => {
         if (!user) {
             setError("Bạn cần đăng nhập để sử dụng chức năng này.");
             setIsLoadingReport(false);
@@ -126,72 +126,46 @@ const handleSearch = useCallback(async (videoUrl: string) => {
         setIsLoadingReport(true);
         resetAllState();
 
-        // --- CẬP NHẬT: Tìm kiếm video chi tiết trong cache trước ---
         try {
-            const cachedItem = localStorage.getItem(TIKTOK_DATA_CACHE_KEY);
-            if (cachedItem) {
-                const cachedData: CachedTiktokData = JSON.parse(cachedItem);
-                const foundVideo = cachedData.videos.find(v => v.url_tiktok === videoUrl);
-                if (foundVideo) {
-                    setVideoData(foundVideo); // Lưu lại dữ liệu video chi tiết
-                }
-            }
-        } catch (e) {
-            console.error("Lỗi khi đọc cache:", e);
-        }
-
-        // Logic tìm kiếm trong Firestore
-        try {
-            const docId = encodeUrlForId(videoUrl);
-            const docRef = doc(db, 'users', user.uid, 'saved_scripts', docId);
-            const docSnap = await getDoc(docRef);
-
-            if (docSnap.exists()) {
-                const data = docSnap.data();
-                setReport(data.originalReport);
-                setImprovedScript(data.improvedScript);
-                setCurrentView(data.improvedScript ? 'script' : 'report');
-                setIsLoadingReport(false);
-                return;
-            }
-        } catch (e) {
-            console.error("Error loading from Firestore:", e);
-        }
-        
-        // Logic gọi API
-        try {
+            // Chỉ cần một lệnh gọi API duy nhất đến backend.
+            // Backend sẽ tự xử lý logic kiểm tra DB hoặc gọi n8n.
             const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/report`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ product: videoUrl, userId: user.uid }),
             });
+
             if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error('Đã xảy ra lỗi xin vui lòng thử lại sau ít phút');
+                // Xử lý lỗi an toàn hơn
+                const errorText = await res.text();
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    throw new Error(errorJson.detail || 'Lỗi từ server.');
+                } catch {
+                    throw new Error(`Server phản hồi với mã lỗi: ${res.status}`);
+                }
             }
+
+            // Backend sẽ trả về một cấu trúc dữ liệu nhất quán
             const data = await res.json();
-            setReport(data.text);
+            
+            // Cập nhật state từ một nguồn duy nhất
+            setReport(data.report_text || '');
+            setVideoData(data.video_data || null);
+
+            // Kiểm tra xem có kịch bản đã lưu từ trước không (nếu backend trả về)
+            if (data.video_data && data.video_data.improvedScript) {
+                setImprovedScript(data.video_data.improvedScript);
+                setCurrentView('script');
+            }
+
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
+            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi không mong muốn.';
             setError(errorMessage);
         } finally {
             setIsLoadingReport(false);
         }
-
-        try{
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/url_tiktok?url_tiktok=${encodeURIComponent(videoUrl)}`);
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.message || 'Failed to fetch TikTok data');
-            }
-            const data: TikTokData = await res.json();
-            setVideoData(data); // Lưu lại dữ liệu video chi tiết
-        }catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
-            setError(errorMessage);
-        }
     }, [user, resetAllState]);
-    // --- SỬA LỖI: Tách logic tìm kiếm ban đầu ra khỏi logic tìm kiếm thủ công ---
     useEffect(() => {
         // Chỉ thực hiện tìm kiếm ban đầu MỘT LẦN khi có đủ thông tin
         if (currentUrl && user && !initialSearchPerformed.current) {
