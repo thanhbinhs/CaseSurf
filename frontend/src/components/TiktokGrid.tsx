@@ -79,9 +79,6 @@ export default function TikTokGrid({ videos: initialVideos, userNames }: TikTokG
 
         const params = new URLSearchParams();
         params.set('url', video.url_tiktok);
-        if (video.description) {
-            params.set('description', video.description);
-        }
         router.push(`/research?${params.toString()}`);
     };
 
