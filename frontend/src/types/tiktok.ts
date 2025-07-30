@@ -10,11 +10,9 @@ export interface TikTokData {
     niche?: string | null;
     content_angle?: string | null;
     hook_type?: string | null;
-    cta_type?: string | null;
-    trust_tactic?: string | null;
     product_type?: string | null;
     title?: string | null;
-    target_persona?: string | null;
+    title1?: string | null;
+    title2?: string | null;
     script_framework?: string | null;
-    core_emotion?: string | null;
 }

@@ -1,11 +1,14 @@
 'use client';
-import React, { useEffect, useRef } from 'react';
+import React, { JSX, useEffect, useRef } from 'react';
 import { AnalysisReport } from './AnalysisReport';
 import { ImprovedScript } from './ImprovedScript';
 import { ProgressBar } from '@/components/ProgressBar';
 import { AlertTriangleIcon } from '@/components/Icons';
 import { MarkdownRenderer } from '@/components/MarkdownRenderer';
 import { TikTokData } from '@/types/tiktok'; // Giả sử bạn có file type này
+import {
+    Tags, Type, AArrowDown, AArrowUp, PenSquare, FileText, Anchor, ShoppingBag
+} from 'lucide-react';
 
 // --- Định nghĩa Interface ---
 interface ResultDisplayProps {
@@ -32,6 +35,9 @@ interface ResultDisplayProps {
     currentView: 'report' | 'script';
     onViewChange: (view: 'report' | 'script') => void;
 }
+
+
+
 
 // --- Helper Functions for Editor ---
 // Chuyển đổi Markdown đơn giản sang HTML để hiển thị trong editor
@@ -163,39 +169,62 @@ const InlineError = ({ message, onRetry }: { message: string, onRetry: () => voi
         </button>
     </div>
 );
+
+const attributeIcons: Record<string, JSX.Element> = {
+    'Niche': <Tags size={16} className="text-sky-600" />,
+    'Content Angle': <Type size={16} className="text-purple-600" />,
+    'Hook Type': <Anchor size={16} className="text-amber-600" />,
+    'Product Type': <ShoppingBag size={16} className="text-emerald-600" />,
+    'Title 1': <AArrowDown size={16} className="text-slate-500" />,
+    'Title 2': <AArrowUp size={16} className="text-slate-500" />,
+    'Script Framework': <FileText size={16} className="text-rose-600" />,
+    'Default': <PenSquare size={16} className="text-slate-500" />
+};
+
 const VideoAttributesDisplay = ({ video }: { video: TikTokData }) => {
+    // We remove 'Title' from this list because it's already used as the main header
     const videoAttributes = [
         { label: 'Niche', value: video.niche },
         { label: 'Content Angle', value: video.content_angle },
         { label: 'Hook Type', value: video.hook_type },
-        { label: 'CTA Type', value: video.cta_type },
-        { label: 'Trust Tactic', value: video.trust_tactic },
         { label: 'Product Type', value: video.product_type },
-        { label: 'Title', value: video.title },
-        { label: 'Target Persona', value: video.target_persona },
-        { label: 'Script Framework', value: video.script_framework },
-        { label: 'Core Emotion', value: video.core_emotion }
-    ].filter(attr => attr.value); // Chỉ hiển thị các thuộc tính có giá trị
+        { label: 'Title 1', value: video.title1 },
+        { label: 'Title 2', value: video.title2 },
+        { label: 'Script Framework', value: video.script_framework }
+    ].filter(attr => attr.value); // Only show attributes that have a value
 
     if (videoAttributes.length === 0) {
-        return null; // Không hiển thị gì nếu không có thuộc tính
+        return null; // Don't render anything if there are no attributes
     }
 
     return (
-        <div className="mb-6 p-6 bg-slate-50 border border-slate-200 rounded-xl">
-            <h3 className="text-lg font-semibold text-slate-800 mb-4">Video Attributes</h3>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
-                {videoAttributes.map(attr => (
-                    <div key={attr.label}>
-                        <dt className="text-sm text-slate-500">{attr.label}</dt>
-                        <dd className="font-semibold text-slate-700 mt-1">{attr.value}</dd>
+        <div className="p-5 bg-white rounded-xl shadow-md border border-slate-200 mb-6">
+            {/* Main Title */}
+            <h3 className="text-xl font-bold text-slate-800 mb-4 pb-3 border-b border-slate-200">
+                {video.title}
+            </h3>
+
+            {/* Attributes Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                {videoAttributes.map((attr) => (
+                    <div key={attr.label} className="flex flex-col gap-1">
+                        {/* Attribute Label with Icon */}
+                        <div className="flex items-center gap-2">
+                            {attributeIcons[attr.label as string] || attributeIcons['Default']}
+                            <span className="text-sm font-semibold text-slate-600">
+                                {attr.label}
+                            </span>
+                        </div>
+                        {/* Attribute Value as a Badge */}
+                        <span className="text-base font-medium text-slate-900 bg-slate-100 px-3 py-1 rounded-md w-fit">
+                            {attr.value}
+                        </span>
                     </div>
                 ))}
-            </dl>
+            </div>
         </div>
     );
 };
-
 
 export const ResultDisplay = (props: ResultDisplayProps) => {
     const {

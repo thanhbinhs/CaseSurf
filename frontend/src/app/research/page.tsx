@@ -14,6 +14,7 @@ import SearchBox from '@/components/SearchBox';
 import { ResultDisplay } from '@/components/research/ResultDisplay';
 import { doc, increment, updateDoc, setDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Footer } from '@/components/Footer';
+import { TikTokData } from '@/types/tiktok';
 
 // --- Types ---
 type ImprovementRequest = {
@@ -22,24 +23,6 @@ type ImprovementRequest = {
 };
 
 const TIKTOK_DATA_CACHE_KEY = 'tiktokDataCache';
-
-interface TikTokData {
-    url_tiktok: string;
-    description: string | null;
-    click: number | null;
-    tym: number | null;
-    userId: string | null;
-    niche?: string | null; // Thêm trường ngách
-    content_angle?: string | null; // Thêm trường góc nội dung
-    hook_type?: string | null; // Thêm trường loại hook
-    cta_type?: string | null; // Thêm trường loại CTA
-    trust_tactic?: string | null; // Thêm trường chiến thuật tin cậy
-    product_type?: string | null; // Thêm trường loại sản phẩm
-    title?: string | null; // Thêm trường tiêu đề
-    target_persona?: string | null; // Thêm trường persona mục tiêu
-    script_framework?: string | null; // Thêm trường khung kịch bản
-    core_emotion?: string | null; // Thêm trường cảm xúc cốt lõi
-}
 
 interface CachedTiktokData {
     videos: TikTokData[];

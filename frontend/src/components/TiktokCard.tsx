@@ -37,12 +37,11 @@ export default function TikTokCard({ video, userName, isLiked, onAnalyzeClick, o
         { label: 'Niche', value: video.niche },
         { label: 'Content Angle', value: video.content_angle },
         { label: 'Hook Type', value: video.hook_type },
-        { label: 'CTA Type', value: video.cta_type },
-        { label: 'Trust Tactic', value: video.trust_tactic },
         { label: 'Product Type', value: video.product_type },
-        { label: 'Target Persona', value: video.target_persona },
         { label: 'Script Framework', value: video.script_framework },
-        { label: 'Core Emotion', value: video.core_emotion }
+        { label: 'Title', value: video.title },
+        { label: 'Title 1', value: video.title1 },
+        { label: 'Title 2', value: video.title2 },
     ].filter(attr => attr.value);
 
     // Kích thước video thay đổi dựa trên trạng thái hover

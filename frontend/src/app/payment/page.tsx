@@ -3,7 +3,11 @@
 
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { 
+    PayPalScriptProvider, 
+    PayPalButtons 
+} from "@paypal/react-paypal-js";
+
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, increment, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -15,17 +19,26 @@ const CheckIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
+const CloseIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
+
 // --- Component Card Gói cước ---
+interface Plan {
+    name: string;
+    credits: number;
+    price: number;
+    priceId: string;
+    features: string[];
+    popular?: boolean;
+}
+
 interface PricingCardProps {
-    plan: {
-        name: string;
-        credits: number;
-        price: number;
-        priceId: string; // ID để nhận dạng gói khi thanh toán
-        features: string[];
-        popular?: boolean;
-    };
-    onPurchase: (plan: any) => void;
+    plan: Plan;
+    onPurchase: (plan: Plan) => void;
 }
 
 const PricingCard: React.FC<PricingCardProps> = ({ plan, onPurchase }) => {
@@ -63,21 +76,37 @@ const PricingCard: React.FC<PricingCardProps> = ({ plan, onPurchase }) => {
 
 export default function PaymentPage() {
     const { user } = useAuth();
-    const [selectedPlan, setSelectedPlan] = useState<any>(null);
+    const [selectedPlan, setSelectedPlan] = useState<Plan | null>(null);
     const [paymentError, setPaymentError] = useState<string | null>(null);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
 
-    const plans = [
+    const plans: Plan[] = [
         { name: 'Basic', credits: 10, price: 5, priceId: 'price_basic_5', features: ['Perfect for getting started', 'Analyze up to 10 videos', 'Standard support'] },
         { name: 'Plus', credits: 100, price: 45, priceId: 'price_plus_45', features: ['Best value for creators', 'Analyze up to 100 videos', 'Priority email support', 'Access to new features'], popular: true },
         { name: 'Ultra', credits: 1000, price: 450, priceId: 'price_ultra_450', features: ['For agencies and power users', 'Analyze up to 1000 videos', 'Dedicated 24/7 support', 'API access (coming soon)'] },
     ];
 
-    const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "YOUR_PAYPAL_CLIENT_ID";
+    const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
+
+    if (!PAYPAL_CLIENT_ID) {
+        return (
+            <div className="flex items-center justify-center h-screen">
+                <p className="text-red-500">PayPal Client ID is not configured. Please check your environment variables.</p>
+            </div>
+        );
+    }
+
+    const handlePurchaseClick = (plan: Plan) => {
+        setPaymentError(null);
+        setPaymentSuccess(false);
+        setSelectedPlan(plan);
+    };
 
     const handleSuccessfulPayment = async (creditsToAdd: number) => {
         if (!user) {
             setPaymentError("You must be logged in to complete the purchase.");
+            setIsProcessing(false);
             return;
         }
         try {
@@ -86,15 +115,80 @@ export default function PaymentPage() {
                 credit: increment(creditsToAdd)
             });
             setPaymentSuccess(true);
-            setSelectedPlan(null); // Đóng modal thanh toán
+            setSelectedPlan(null);
         } catch (error) {
             console.error("Error updating credits:", error);
             setPaymentError("Failed to update your credits. Please contact support.");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
+    const createOrder = (data: any, actions: any) => {
+        return actions.order.create({
+            purchase_units: [{
+                description: `Purchase of ${selectedPlan?.credits} credits`,
+                amount: {
+                    value: selectedPlan?.price.toString(),
+                    currency_code: 'USD'
+                },
+            }],
+            application_context: {
+                shipping_preference: 'NO_SHIPPING'
+            }
+        });
+    };
+
+    const onApprove = (data: any, actions: any) => {
+        setIsProcessing(true);
+        return fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                orderID: data.orderID
+            })
+        })
+        .then(res => {
+            if (!res.ok) {
+                throw new Error('Failed to capture order');
+            }
+            return res.json();
+        })
+        .then(orderData => {
+            // Kiểm tra trạng thái giao dịch
+            const transaction = orderData.purchase_units[0].payments.captures[0];
+            if (transaction.status === 'COMPLETED') {
+                handleSuccessfulPayment(selectedPlan!.credits);
+            } else {
+                 // Xử lý các trạng thái khác nếu cần (ví dụ: PENDING)
+                 setPaymentError(`Payment status: ${transaction.status}. Please contact support.`);
+                 setIsProcessing(false);
+            }
+        })
+        .catch(err => {
+            console.error("PayPal Capture Error:", err);
+            setPaymentError("An error occurred while finalizing your payment. Please try again.");
+            setIsProcessing(false);
+        });
+    };
+
+    const onError = (err: any) => {
+        console.error("PayPal Error:", err);
+        setPaymentError("An error occurred with your payment. Please try again or use a different payment method.");
+        setIsProcessing(false);
+    };
+
+    const closeModal = () => {
+        if (!isProcessing) {
+            setSelectedPlan(null);
+        }
+    };
+
+
     return (
-        <PayPalScriptProvider options={{ "clientId": PAYPAL_CLIENT_ID }}>
+        <PayPalScriptProvider options={{ "clientId": PAYPAL_CLIENT_ID, currency: "USD", intent: "capture" }}>
             <div className="bg-slate-50 min-h-screen">
                 <Navbar />
                 <main className="container mx-auto px-4 py-12">
@@ -103,7 +197,6 @@ export default function PaymentPage() {
                         <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Select a credit package that fits your needs. All payments are secure and one-time.</p>
                     </div>
 
-                    {/* Hiển thị thông báo thành công hoặc lỗi */}
                     {paymentSuccess && (
                         <div className="max-w-md mx-auto mb-8 p-4 bg-green-50 text-green-700 border border-green-200 rounded-lg text-center">
                             Payment successful! Your credits have been added to your account.
@@ -117,43 +210,36 @@ export default function PaymentPage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
                         {plans.map(plan => (
-                            <PricingCard key={plan.name} plan={plan} onPurchase={setSelectedPlan} />
+                            <PricingCard key={plan.name} plan={plan} onPurchase={handlePurchaseClick} />
                         ))}
                     </div>
 
-                    {/* Modal Thanh toán PayPal */}
                     {selectedPlan && (
-                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
-                                <h2 className="text-2xl font-bold mb-2">Complete Your Purchase</h2>
-                                <p className="text-slate-600 mb-6">You are purchasing the <span className="font-semibold">{selectedPlan.name}</span> plan for <span className="font-semibold">${selectedPlan.price}</span>.</p>
-                                {/* <PayPalButtons
-                                    style={{ layout: "vertical" }}
-                                    createOrder={(data, actions) => {
-                                        return actions.order.create({
-                                            purchase_units: [{
-                                                description: `Purchase of ${selectedPlan.credits} credits`,
-                                                amount: {
-                                                    value: selectedPlan.price.toString(),
-                                                },
-                                            }],
-                                        });
-                                    }}
-                                    onApprove={async (data, actions) => {
-                                        const order = await actions.order?.capture();
-                                        console.log("Payment successful:", order);
-                                        // Sau khi thanh toán thành công, cập nhật credit
-                                        await handleSuccessfulPayment(selectedPlan.credits);
-                                    }}
-                                    onError={(err) => {
-                                        console.error("PayPal Error:", err);
-                                        setPaymentError("An error occurred with your payment. Please try again.");
-                                        setSelectedPlan(null);
-                                    }}
-                                    onCancel={() => {
-                                        setSelectedPlan(null); // Đóng modal nếu người dùng hủy
-                                    }}
-                                /> */}
+                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
+                            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
+                                <button onClick={closeModal} className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 disabled:opacity-50" disabled={isProcessing}>
+                                    <CloseIcon />
+                                </button>
+                                
+                                {isProcessing ? (
+                                    <div className="text-center py-8">
+                                        <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                        <p className="mt-4 text-lg font-semibold text-slate-700">Processing your payment...</p>
+                                        <p className="text-slate-500">Please do not close this window.</p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <h2 className="text-2xl font-bold mb-2">Your Purchase</h2>
+                                        <p className="text-slate-600 mb-6">You are purchasing the <span className="font-semibold">{selectedPlan.name}</span> plan for <span className="font-semibold">${selectedPlan.price}</span>.</p>
+                                        <PayPalButtons
+                                            style={{ layout: "vertical" }}
+                                            createOrder={(data, actions) => createOrder(data, actions)}
+                                            onApprove={(data, actions) => onApprove(data, actions)}
+                                            onError={(err) => onError(err)}
+                                            onCancel={() => setSelectedPlan(null)}
+                                        />
+                                    </>
+                                )}
                             </div>
                         </div>
                     )}

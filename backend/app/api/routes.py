@@ -246,12 +246,10 @@ async def get_keywords() -> List[KeywordResponse]:
             "niche", 
             "content_angle", 
             "hook_type", 
-            "cta_type", 
-            "trust_tactic", 
             "product_type",
-            "target_persona",
             "script_framework",
-            "core_emotion"
+            "title",
+            
         ]
     
     all_keywords = []

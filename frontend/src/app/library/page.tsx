@@ -122,16 +122,14 @@ export default function TiktokLibrary() {
                 const isNicheMatch = video.niche?.toLowerCase().includes(lowercasedSearchTerm);
                 const isContentAngleMatch = video.content_angle?.toLowerCase().includes(lowercasedSearchTerm);
                 const isHookTypeMatch = video.hook_type?.toLowerCase().includes(lowercasedSearchTerm);
-                const isCtaTypeMatch = video.cta_type?.toLowerCase().includes(lowercasedSearchTerm);
-                const isTrustTacticMatch = video.trust_tactic?.toLowerCase().includes(lowercasedSearchTerm);
                 const isProductTypeMatch = video.product_type?.toLowerCase().includes(lowercasedSearchTerm);
                 // Thêm các trường mới vào điều kiện lọc
                 const isTitleMatch = video.title?.toLowerCase().includes(lowercasedSearchTerm);
-                const isTargetPersonaMatch = video.target_persona?.toLowerCase().includes(lowercasedSearchTerm);
+                const isTitle1Match = video.title1?.toLowerCase().includes(lowercasedSearchTerm);
+                const isTitle2Match = video.title2?.toLowerCase().includes(lowercasedSearchTerm);
                 const isScriptFrameworkMatch = video.script_framework?.toLowerCase().includes(lowercasedSearchTerm);
-                const isCoreEmotionMatch = video.core_emotion?.toLowerCase().includes(lowercasedSearchTerm);
 
-                return isUrlMatch || isNicheMatch || isContentAngleMatch || isHookTypeMatch || isCtaTypeMatch || isTrustTacticMatch || isProductTypeMatch || isTitleMatch || isTargetPersonaMatch || isScriptFrameworkMatch || isCoreEmotionMatch;
+                return isUrlMatch || isNicheMatch || isContentAngleMatch || isHookTypeMatch || isProductTypeMatch || isTitleMatch || isTitle1Match || isTitle2Match || isScriptFrameworkMatch;
             });
         }
 
@@ -147,15 +145,6 @@ export default function TiktokLibrary() {
         }
         setFilteredVideos(processedVideos);
     }, [searchTerm, sortOption, allVideos]);
-
-    const handleAnalyzeClick = (video: TikTokData) => {
-        const params = new URLSearchParams();
-        params.set('url', video.url_tiktok);
-        if (video.description) {
-            params.set('description', video.description);
-        }
-        router.push(`/research?${params.toString()}`);
-    };
 
     if (isInitialLoading) {
         return <div className="text-center p-10 text-slate-500">Loading library...</div>;
