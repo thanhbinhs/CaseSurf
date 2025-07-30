@@ -140,16 +140,29 @@ export default function PaymentPage() {
     };
 
     const onApprove = (data: any, actions: any) => {
-        setIsProcessing(true);
-        return fetch('/api/paypal/capture-order', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                orderID: data.orderID
-            })
+    // Đảm bảo user và selectedPlan tồn tại
+    if (!user || !selectedPlan) {
+        setPaymentError("User or selected plan is missing. Please try again.");
+        return Promise.reject(new Error("User or Plan not found"));
+    }
+
+    setIsProcessing(true);
+    
+    // Gửi thêm userId và chi tiết gói cước về server
+    return fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            orderID: data.orderID,
+            userId: user.uid, // Gửi ID của người dùng
+            planDetails: {    // Gửi thông tin gói cước
+                name: selectedPlan.name,
+                price: selectedPlan.price
+            }
         })
+    })
         .then(res => {
             if (!res.ok) {
                 throw new Error('Failed to capture order');

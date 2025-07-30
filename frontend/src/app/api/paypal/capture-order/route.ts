@@ -1,10 +1,13 @@
 // app/api/paypal/capture-order/route.ts
 import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
 
-const { NEXT_PUBLIC_PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET } = process.env;
+const { NEXT_PUBLIC_PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESEND_API_KEY } = process.env;
 const base = process.env.NODE_ENV === 'production' 
     ? 'https://api-m.paypal.com' 
     : 'https://api-m.sandbox.paypal.com';
+
+const resend = new Resend(RESEND_API_KEY);
 
 /**
  * Tạo access token để xác thực với PayPal API.
@@ -56,22 +59,50 @@ async function captureOrder(orderID: string) {
 
 export async function POST(request: Request) {
   try {
-    const { orderID } = await request.json();
+    // Nhận thêm dữ liệu từ request body
+    const { orderID, userId, planDetails } = await request.json();
 
-    if (!orderID) {
-        return NextResponse.json({ error: 'Missing orderID' }, { status: 400 });
+    if (!orderID || !userId || !planDetails) {
+        return NextResponse.json({ error: 'Missing required data' }, { status: 400 });
     }
 
     const captureData = await captureOrder(orderID);
-    // Bạn có thể lưu thông tin giao dịch vào cơ sở dữ liệu của mình ở đây nếu cần
-    // Ví dụ: log lại captureData để kiểm tra
-    console.log("Captured Data:", captureData);
+
+    // Kiểm tra nếu giao dịch thành công
+    const transaction = captureData?.purchase_units?.[0]?.payments?.captures?.[0];
+    if (transaction?.status === 'COMPLETED') {
+        // GIAO DỊCH THÀNH CÔNG -> GỬI EMAIL THÔNG BÁO
+
+        try {
+            await resend.emails.send({
+                from: 'Notification <onboarding@resend.dev>', // Thay bằng email từ domain đã xác thực của bạn
+                to: ['seedx.work@gmail.com'], // Địa chỉ email của bạn
+                subject: `🎉 New Purchase: ${planDetails.name} Plan`,
+                html: `
+                    <h1>New Purchase Notification</h1>
+                    <p>A user has successfully purchased a credit package.</p>
+                    <ul>
+                        <li><strong>User ID:</strong> ${userId}</li>
+                        <li><strong>Plan Name:</strong> ${planDetails.name}</li>
+                        <li><strong>Price:</strong> $${planDetails.price}</li>
+                        <li><strong>PayPal Order ID:</strong> ${orderID}</li>
+                        <li><strong>Timestamp:</strong> ${new Date().toLocaleString('vi-VN')}</li>
+                    </ul>
+                `,
+            });
+            console.log("Admin notification email sent successfully.");
+
+        } catch (emailError) {
+            // Nếu gửi email thất bại, chỉ log lỗi chứ không làm sập toàn bộ yêu cầu
+            // Việc cộng credit cho người dùng vẫn quan trọng hơn
+            console.error("Failed to send notification email:", emailError);
+        }
+    }
     
     return NextResponse.json(captureData);
 
   } catch (error: any) {
-    console.error("Failed to capture order:", error);
-    // Trả về lỗi chi tiết hơn nếu có thể
+    console.error("Failed to process payment:", error);
     const errorMessage = error.message || "Failed to capture order.";
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }

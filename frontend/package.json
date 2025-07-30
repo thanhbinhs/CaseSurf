@@ -21,6 +21,7 @@
     "react-intersection-observer": "^9.16.0",
     "react-social-media-embed": "^2.5.18",
     "react-tiktok-embed": "^1.0.0",
+    "resend": "^4.7.0",
     "styled-components": "^6.1.19"
   },
   "devDependencies": {
