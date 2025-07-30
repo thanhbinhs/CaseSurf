@@ -76,8 +76,8 @@ export default function TikTokCard({ video, userName, isLiked, onAnalyzeClick, o
 
             {/* --- VÙNG THÔNG TIN CƠ BẢN (TIÊU ĐỀ & MÔ TẢ NGẮN) --- */}
             <div className="px-4 py-3 bg-white">
-                <h3 className="font-bold text-lg text-slate-900 truncate mb-1" title={video.title || undefined}>
-                    {video.title || 'Không có tiêu đề'}
+                <h3 className="font-bold text-lg text-slate-900 truncate mb-1" title={video.title1 || undefined}>
+                    {video.title1 || 'Không có tiêu đề'}
                 </h3>
                 {/* Bạn có thể thêm mô tả ngắn hoặc các thông tin cốt lõi khác ở đây */}
                 {/* {video.description && <p className="text-sm text-slate-600 line-clamp-2">{video.description}</p>} */}
@@ -94,8 +94,8 @@ export default function TikTokCard({ video, userName, isLiked, onAnalyzeClick, o
                 )}
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4 flex flex-col justify-end">
-                    <h3 className="font-bold text-lg text-white truncate mb-2" title={video.title || undefined}>
-                        {video.title || 'No Title Available'}
+                    <h3 className="font-bold text-lg text-white truncate mb-2" title={video.title1 || undefined}>
+                        {video.title1 || 'No Title Available'}
                     </h3>
                     {videoAttributes.length > 0 && (
                         // SỬA LỖI: Thêm container có thể cuộn

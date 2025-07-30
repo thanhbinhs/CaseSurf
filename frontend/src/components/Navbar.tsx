@@ -186,6 +186,13 @@ export default function Navbar() {
                         >
                             Research
                         </button>
+                        <button
+                            className="text-slate-600 hover:text-purple-600 font-semibold transition-colors cursor-pointer text-sm"
+                            onClick={() => handleNavigation('/payment')}
+                        >
+                            Payment
+                        </button>
+                        
                     </div>
                 </div>
                 

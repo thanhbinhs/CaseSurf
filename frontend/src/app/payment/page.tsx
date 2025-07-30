@@ -1,7 +1,6 @@
-// app/payment/page.tsx
 'use client';
 
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import Navbar from '@/components/Navbar';
 import { 
     PayPalScriptProvider, 
@@ -9,7 +8,7 @@ import {
 } from "@paypal/react-paypal-js";
 
 import { useAuth } from '@/contexts/AuthContext';
-import { doc, increment, updateDoc } from 'firebase/firestore';
+import { doc, increment, updateDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 // --- Icons ---
@@ -29,11 +28,12 @@ const CloseIcon = ({ className }: { className?: string }) => (
 // --- Component Card Gói cước ---
 interface Plan {
     name: string;
-    credits: number;
+    credits: number; // Dùng Infinity cho không giới hạn
     price: number;
     priceId: string;
     features: string[];
     popular?: boolean;
+    isFree?: boolean; // Thêm cờ để xác định gói miễn phí
 }
 
 interface PricingCardProps {
@@ -43,18 +43,28 @@ interface PricingCardProps {
 
 const PricingCard: React.FC<PricingCardProps> = ({ plan, onPurchase }) => {
     return (
-        <div className={`relative flex flex-col p-8 bg-white rounded-2xl shadow-lg border ${plan.popular ? 'border-purple-500' : 'border-slate-200'}`}>
+        // Tăng chiều rộng tối đa cho card để trông cân đối hơn
+        <div className={`relative flex flex-col p-8 bg-white rounded-2xl shadow-lg border w-full max-w-sm ${plan.popular ? 'border-purple-500' : 'border-slate-200'}`}>
             {plan.popular && (
                 <div className="absolute top-0 -translate-y-1/2 w-full flex justify-center">
                     <span className="bg-purple-500 text-white text-xs font-semibold px-4 py-1 rounded-full uppercase">Most Popular</span>
                 </div>
             )}
             <h3 className="text-2xl font-semibold text-slate-800">{plan.name}</h3>
-            <p className="mt-4 text-slate-500">Get <span className="font-bold text-slate-700">{plan.credits} credits</span> to boost your creativity.</p>
+            
+            {/* Hiển thị text phù hợp với số credit */}
+            <p className="mt-4 text-slate-500">
+                {plan.credits === Infinity 
+                    ? <span className="font-bold text-slate-700">Unlimited Credits</span>
+                    : <>Get <span className="font-bold text-slate-700">{plan.credits} credits</span> to boost your creativity.</>
+                }
+            </p>
+
             <div className="mt-6">
                 <span className="text-5xl font-extrabold text-slate-900">${plan.price}</span>
-                <span className="text-base font-medium text-slate-500">/one-time</span>
+                {!plan.isFree && <span className="text-base font-medium text-slate-500">/one-time</span>}
             </div>
+            
             <ul className="mt-8 space-y-4 flex-grow">
                 {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start">
@@ -63,11 +73,19 @@ const PricingCard: React.FC<PricingCardProps> = ({ plan, onPurchase }) => {
                     </li>
                 ))}
             </ul>
+
             <button
                 onClick={() => onPurchase(plan)}
-                className={`mt-8 w-full py-3 px-6 rounded-lg font-semibold transition-colors ${plan.popular ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+                disabled={plan.isFree} // Vô hiệu hóa nút cho gói Free
+                className={`mt-8 w-full py-3 px-6 rounded-lg font-semibold transition-colors ${
+                    plan.isFree 
+                        ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+                        : plan.popular 
+                            ? 'bg-purple-600 text-white hover:bg-purple-700' 
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
             >
-                Purchase Now
+                {plan.isFree ? 'Your Current Plan' : 'Purchase Now'}
             </button>
         </div>
     );
@@ -81,10 +99,10 @@ export default function PaymentPage() {
     const [paymentSuccess, setPaymentSuccess] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
 
+    // --- DỮ LIỆU PLAN ĐÃ CẬP NHẬT ---
     const plans: Plan[] = [
-        { name: 'Basic', credits: 10, price: 5, priceId: 'price_basic_5', features: ['Perfect for getting started', 'Analyze up to 10 videos', 'Standard support'] },
-        { name: 'Plus', credits: 100, price: 45, priceId: 'price_plus_45', features: ['Best value for creators', 'Analyze up to 100 videos', 'Priority email support', 'Access to new features'], popular: true },
-        { name: 'Ultra', credits: 1000, price: 450, priceId: 'price_ultra_450', features: ['For agencies and power users', 'Analyze up to 1000 videos', 'Dedicated 24/7 support', 'API access (coming soon)'] },
+        { name: 'Starter', credits: 5, price: 0, priceId: 'price_basic_0', features: ['Perfect for getting started', '5 video credits', 'Standard support'], isFree: true },
+        { name: 'Lifetime Pro', credits: Infinity, price: 30, priceId: 'price_plus_30', features: ['Best value for creators', 'Unlimited Video Analysis', 'Priority email support', 'Access to new features'], popular: true },
     ];
 
     const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -98,11 +116,13 @@ export default function PaymentPage() {
     }
 
     const handlePurchaseClick = (plan: Plan) => {
+        if (plan.isFree) return; // Không làm gì nếu click gói miễn phí
         setPaymentError(null);
         setPaymentSuccess(false);
         setSelectedPlan(plan);
     };
-
+    
+    // --- LOGIC THANH TOÁN ĐÃ CẬP NHẬT ĐỂ XỬ LÝ UNLIMITED ---
     const handleSuccessfulPayment = async (creditsToAdd: number) => {
         if (!user) {
             setPaymentError("You must be logged in to complete the purchase.");
@@ -111,25 +131,37 @@ export default function PaymentPage() {
         }
         try {
             const userDocRef = doc(db, 'users', user.uid);
-            await updateDoc(userDocRef, {
-                credit: increment(creditsToAdd)
-            });
+            
+            // Nếu là gói unlimited, set một cờ isPro thay vì cộng dồn credit
+            if (creditsToAdd === Infinity) {
+                await updateDoc(userDocRef, {
+                    isPro: true,
+                    // Tùy chọn: bạn có thể set credit về một giá trị tượng trưng như -1 hoặc null
+                    // credit: -1 
+                });
+            } else {
+                await updateDoc(userDocRef, {
+                    credit: increment(creditsToAdd)
+                });
+            }
+
             setPaymentSuccess(true);
             setSelectedPlan(null);
         } catch (error) {
-            console.error("Error updating credits:", error);
-            setPaymentError("Failed to update your credits. Please contact support.");
+            console.error("Error updating user data:", error);
+            setPaymentError("Failed to update your account. Please contact support.");
         } finally {
             setIsProcessing(false);
         }
     };
 
     const createOrder = (data: any, actions: any) => {
+        if (!selectedPlan) return Promise.reject(new Error("No plan selected"));
         return actions.order.create({
             purchase_units: [{
-                description: `Purchase of ${selectedPlan?.credits} credits`,
+                description: `Purchase of ${selectedPlan.name} plan`,
                 amount: {
-                    value: selectedPlan?.price.toString(),
+                    value: selectedPlan.price.toString(),
                     currency_code: 'USD'
                 },
             }],
@@ -140,42 +172,25 @@ export default function PaymentPage() {
     };
 
     const onApprove = (data: any, actions: any) => {
-    // Đảm bảo user và selectedPlan tồn tại
-    if (!user || !selectedPlan) {
-        setPaymentError("User or selected plan is missing. Please try again.");
-        return Promise.reject(new Error("User or Plan not found"));
-    }
+        if (!user || !selectedPlan) {
+            setPaymentError("User or selected plan is missing. Please try again.");
+            return Promise.reject(new Error("User or Plan not found"));
+        }
 
-    setIsProcessing(true);
-    
-    // Gửi thêm userId và chi tiết gói cước về server
-    return fetch('/api/paypal/capture-order', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            orderID: data.orderID,
-            userId: user.uid, // Gửi ID của người dùng
-            planDetails: {    // Gửi thông tin gói cước
-                name: selectedPlan.name,
-                price: selectedPlan.price
-            }
+        setIsProcessing(true);
+        
+        // Bạn có thể giữ nguyên logic gọi API này nếu server của bạn xác thực giao dịch
+        return fetch('/api/paypal/capture-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderID: data.orderID, userId: user.uid, planName: selectedPlan.name })
         })
-    })
-        .then(res => {
-            if (!res.ok) {
-                throw new Error('Failed to capture order');
-            }
-            return res.json();
-        })
+        .then(res => res.json())
         .then(orderData => {
-            // Kiểm tra trạng thái giao dịch
             const transaction = orderData.purchase_units[0].payments.captures[0];
             if (transaction.status === 'COMPLETED') {
                 handleSuccessfulPayment(selectedPlan!.credits);
             } else {
-                 // Xử lý các trạng thái khác nếu cần (ví dụ: PENDING)
                  setPaymentError(`Payment status: ${transaction.status}. Please contact support.`);
                  setIsProcessing(false);
             }
@@ -207,12 +222,12 @@ export default function PaymentPage() {
                 <main className="container mx-auto px-4 py-12">
                     <div className="text-center mb-12">
                         <h1 className="text-4xl md:text-5xl font-extrabold text-slate-800">Choose Your Plan</h1>
-                        <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Select a credit package that fits your needs. All payments are secure and one-time.</p>
+                        <p className="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">Select a package that fits your needs. All payments are secure and one-time.</p>
                     </div>
 
                     {paymentSuccess && (
                         <div className="max-w-md mx-auto mb-8 p-4 bg-green-50 text-green-700 border border-green-200 rounded-lg text-center">
-                            Payment successful! Your credits have been added to your account.
+                            Payment successful! Your account has been upgraded.
                         </div>
                     )}
                     {paymentError && (
@@ -221,12 +236,14 @@ export default function PaymentPage() {
                         </div>
                     )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                    {/* --- LAYOUT CHÍNH ĐÃ THAY ĐỔI --- */}
+                    <div className="flex flex-col md:flex-row justify-center items-stretch gap-8 max-w-4xl mx-auto">
                         {plans.map(plan => (
                             <PricingCard key={plan.name} plan={plan} onPurchase={handlePurchaseClick} />
                         ))}
                     </div>
 
+                    {/* Modal không thay đổi */}
                     {selectedPlan && (
                         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
                             <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
@@ -242,13 +259,13 @@ export default function PaymentPage() {
                                     </div>
                                 ) : (
                                     <>
-                                        <h2 className="text-2xl font-bold mb-2">Your Purchase</h2>
+                                        <h2 className="text-2xl font-bold mb-2">Confirm Your Purchase</h2>
                                         <p className="text-slate-600 mb-6">You are purchasing the <span className="font-semibold">{selectedPlan.name}</span> plan for <span className="font-semibold">${selectedPlan.price}</span>.</p>
                                         <PayPalButtons
                                             style={{ layout: "vertical" }}
-                                            createOrder={(data, actions) => createOrder(data, actions)}
-                                            onApprove={(data, actions) => onApprove(data, actions)}
-                                            onError={(err) => onError(err)}
+                                            createOrder={createOrder}
+                                            onApprove={onApprove}
+                                            onError={onError}
                                             onCancel={() => setSelectedPlan(null)}
                                         />
                                     </>
