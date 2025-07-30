@@ -102,7 +102,7 @@ export default function PaymentPage() {
     // --- DỮ LIỆU PLAN ĐÃ CẬP NHẬT ---
     const plans: Plan[] = [
         { name: 'Starter', credits: 5, price: 0, priceId: 'price_basic_0', features: ['Perfect for getting started', '5 video credits', 'Standard support'], isFree: true },
-        { name: 'Lifetime Pro', credits: Infinity, price: 30, priceId: 'price_plus_30', features: ['Best value for creators', 'Unlimited Video Analysis', 'Priority email support', 'Access to new features'], popular: true },
+        { name: 'Lifetime Pro', credits: Infinity, price: 30, priceId: 'price_plus_30', features: ['Best value for creators', 'Unlimited Video Analysis', 'Priority email support', 'Access to new features', 'Our "No-Brainer" 7-Day Guarantee'], popular: true },
     ];
 
     const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
