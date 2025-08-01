@@ -108,7 +108,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                 </div>
             </header>
             <div
-                className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[5000px] opacity-100' : 'max-h-0 opacity-0'}`}
+                className={`transition-all duration-500 ease-in-out ${isOpen ? 'max-h-[10000px] opacity-100' : 'max-h-0 opacity-0'}`}
             >
                 <div className="px-4 md:px-6 pb-6 md:pb-8 border-t border-slate-200 pt-6">
                     {children}
