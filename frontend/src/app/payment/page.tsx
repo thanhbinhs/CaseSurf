@@ -24,6 +24,13 @@ const CloseIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
+const ShoppingBagIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className || "w-6 h-6"}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.658-.463 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+    </svg>
+);
+
+
 
 // --- Component Card Gói cước ---
 interface Plan {
@@ -102,7 +109,7 @@ export default function PaymentPage() {
     // --- DỮ LIỆU PLAN ĐÃ CẬP NHẬT ---
     const plans: Plan[] = [
         { name: 'Starter', credits: 5, price: 0, priceId: 'price_basic_0', features: ['Perfect for getting started', '5 video credits', 'Standard support'], isFree: true },
-        { name: 'Lifetime Pro', credits: Infinity, price: 30, priceId: 'price_plus_30', features: ['Best value for creators', 'Unlimited Video Analysis', 'Priority email support', 'Access to new features', 'Our "No-Brainer" 7-Day Guarantee'], popular: true },
+        { name: 'Lifetime Pro', credits: Infinity, price: 30, priceId: 'price_plus_30', features: ['Best value for creators', 'Unlimited Video Analysis', 'Priority email support', 'Access to new features', '7-Day Refund Policy'], popular: true },
     ];
 
     const PAYPAL_CLIENT_ID = process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID;
@@ -171,36 +178,66 @@ export default function PaymentPage() {
         });
     };
 
-    const onApprove = (data: any, actions: any) => {
-        if (!user || !selectedPlan) {
-            setPaymentError("User or selected plan is missing. Please try again.");
-            return Promise.reject(new Error("User or Plan not found"));
-        }
+    const onApprove = async (data: any, actions: any) => {
+    if (!user || !selectedPlan) {
+        setPaymentError("User or selected plan is missing. Please try again.");
+        return; // Dừng lại sớm nếu thiếu thông tin
+    }
 
-        setIsProcessing(true);
-        
-        // Bạn có thể giữ nguyên logic gọi API này nếu server của bạn xác thực giao dịch
-        return fetch('/api/paypal/capture-order', {
+    setIsProcessing(true);
+
+    try {
+        // Bước 1: Gửi yêu cầu đến backend để xác thực giao dịch
+        const response = await fetch('/api/paypal/capture-order', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderID: data.orderID, userId: user.uid, planName: selectedPlan.name })
-        })
-        .then(res => res.json())
-        .then(orderData => {
-            const transaction = orderData.purchase_units[0].payments.captures[0];
-            if (transaction.status === 'COMPLETED') {
-                handleSuccessfulPayment(selectedPlan!.credits);
-            } else {
-                 setPaymentError(`Payment status: ${transaction.status}. Please contact support.`);
-                 setIsProcessing(false);
-            }
-        })
-        .catch(err => {
-            console.error("PayPal Capture Error:", err);
-            setPaymentError("An error occurred while finalizing your payment. Please try again.");
-            setIsProcessing(false);
+            body: JSON.stringify({ 
+                orderID: data.orderID, 
+                userId: user.uid, 
+                planName: selectedPlan.name 
+            })
         });
-    };
+
+        // Bước 2: Đọc phản hồi dưới dạng văn bản trước để tránh lỗi JSON
+        const responseText = await response.text();
+        let orderData;
+
+        try {
+            // Cố gắng phân tích văn bản thành JSON
+            orderData = JSON.parse(responseText);
+        } catch (jsonError) {
+            // Nếu thất bại, có nghĩa là server đã trả về một lỗi không phải JSON (ví dụ: trang HTML)
+            console.error("Failed to parse server response:", responseText);
+            throw new Error("The server returned an invalid response. Please contact support.");
+        }
+
+        // Bước 3: Kiểm tra xem yêu cầu có thành công về mặt HTTP không
+        if (!response.ok) {
+            // Nếu không, ném ra lỗi với thông báo từ server (nếu có)
+            throw new Error(orderData.message || 'An error occurred on the server.');
+        }
+
+        // Bước 4: Xử lý dữ liệu nếu mọi thứ thành công
+        const transaction = orderData?.purchase_units?.[0]?.payments?.captures?.[0];
+
+        if (transaction && transaction.status === 'COMPLETED') {
+            // Gọi hàm xử lý thành công (nên là một hàm async)
+            await handleSuccessfulPayment(selectedPlan.credits);
+        } else {
+            // Xử lý các trạng thái thanh toán khác (ví dụ: PENDING)
+            setPaymentError(`Payment status: ${transaction?.status || 'Unknown'}. Please contact support.`);
+        }
+
+    } catch (err) {
+        // Bắt tất cả các lỗi từ các bước trên
+        console.error("PayPal Capture Error:", err);
+        const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+        setPaymentError(`Error finalizing payment: ${errorMessage}`);
+    } finally {
+        // Luôn luôn dừng trạng thái xử lý, dù thành công hay thất bại
+        setIsProcessing(false);
+    }
+};
 
     const onError = (err: any) => {
         console.error("PayPal Error:", err);
@@ -245,22 +282,40 @@ export default function PaymentPage() {
 
                     {/* Modal không thay đổi */}
                     {selectedPlan && (
-                        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
-                            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full relative">
-                                <button onClick={closeModal} className="absolute top-4 right-4 text-slate-500 hover:text-slate-800 disabled:opacity-50" disabled={isProcessing}>
+                        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 transition-opacity duration-300 animate-fade-in">
+                            <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full relative transform transition-all duration-300 animate-pop-in">
+                                <button onClick={closeModal} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 disabled:opacity-50 transition-colors" disabled={isProcessing}>
                                     <CloseIcon />
                                 </button>
                                 
                                 {isProcessing ? (
                                     <div className="text-center py-8">
                                         <div className="w-12 h-12 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                                        <p className="mt-4 text-lg font-semibold text-slate-700">Processing your payment...</p>
-                                        <p className="text-slate-500">Please do not close this window.</p>
+                                        <h2 className="mt-6 text-2xl font-bold text-slate-800">Processing Payment</h2>
+                                        <p className="text-slate-500 mt-2">This may take a moment. Please don't close this window.</p>
                                     </div>
                                 ) : (
                                     <>
-                                        <h2 className="text-2xl font-bold mb-2">Confirm Your Purchase</h2>
-                                        <p className="text-slate-600 mb-6">You are purchasing the <span className="font-semibold">{selectedPlan.name}</span> plan for <span className="font-semibold">${selectedPlan.price}</span>.</p>
+                                        <div className="flex items-center gap-4 mb-6">
+                                            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <ShoppingBagIcon className="w-6 h-6 text-purple-600" />
+                                            </div>
+                                            <div>
+                                                <h2 className="text-2xl font-bold text-slate-800">Complete Your Purchase</h2>
+                                                <p className="text-slate-500">Securely checkout with PayPal.</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-8">
+                                            <div className="flex justify-between items-center">
+                                                <span className="text-slate-600 font-medium">{selectedPlan.name} Plan</span>
+                                                <span className="font-bold text-slate-800">${selectedPlan.price.toFixed(2)}</span>
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-1">
+                                                {selectedPlan.credits === Infinity ? 'Unlimited Video Analysis' : `${selectedPlan.credits} credits`}
+                                            </div>
+                                        </div>
+                                        
                                         <PayPalButtons
                                             style={{ layout: "vertical" }}
                                             createOrder={createOrder}

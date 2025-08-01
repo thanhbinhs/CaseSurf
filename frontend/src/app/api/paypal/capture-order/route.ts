@@ -4,8 +4,8 @@ import { Resend } from 'resend';
 
 const { NEXT_PUBLIC_PAYPAL_CLIENT_ID, PAYPAL_CLIENT_SECRET, RESEND_API_KEY } = process.env;
 const base = process.env.NODE_ENV === 'production' 
-    ? 'https://api-m.paypal.com' 
-    : 'https://api-m.sandbox.paypal.com';
+    ? 'https://paypal.com' 
+    : 'https://sandbox.paypal.com';
 
 const resend = new Resend(RESEND_API_KEY);
 
