@@ -40,8 +40,8 @@ export default function TikTokCard({ video, userName, isLiked, onAnalyzeClick, o
         { label: 'Product Type', value: video.product_type },
         { label: 'Script Framework', value: video.script_framework },
         { label: 'Title', value: video.title },
-        { label: 'Title 1', value: video.title1 },
-        { label: 'Title 2', value: video.title2 },
+        { label: 'Product Type & Key Benefits', value: video.title1 },
+        { label: 'Target Audience & Problem', value: video.title2 },
     ].filter(attr => attr.value);
 
     // Kích thước video thay đổi dựa trên trạng thái hover
@@ -139,7 +139,7 @@ export default function TikTokCard({ video, userName, isLiked, onAnalyzeClick, o
                         className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-300 disabled:from-slate-400 disabled:to-slate-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                     >
                         <SparklesIcon className="w-5 h-5" />
-                        <span>{video.description ? "Xem & Cải thiện" : "Phân tích kịch bản"}</span>
+                        <span>{video.description ? "View & Improve" : "Analyze Script"}</span>
                     </button>
                 </div>
             </div>

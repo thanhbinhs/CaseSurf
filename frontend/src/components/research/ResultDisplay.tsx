@@ -175,8 +175,8 @@ const attributeIcons: Record<string, JSX.Element> = {
     'Content Angle': <Type size={16} className="text-purple-600" />,
     'Hook Type': <Anchor size={16} className="text-amber-600" />,
     'Product Type': <ShoppingBag size={16} className="text-emerald-600" />,
-    'Title 1': <AArrowDown size={16} className="text-slate-500" />,
-    'Title 2': <AArrowUp size={16} className="text-slate-500" />,
+    'Product Type & Key Benefits': <AArrowDown size={16} className="text-slate-500" />,
+    'Target Audience & Problem': <AArrowUp size={16} className="text-slate-500" />,
     'Script Framework': <FileText size={16} className="text-rose-600" />,
     'Default': <PenSquare size={16} className="text-slate-500" />
 };
@@ -188,8 +188,8 @@ const VideoAttributesDisplay = ({ video }: { video: TikTokData }) => {
         { label: 'Content Angle', value: video.content_angle },
         { label: 'Hook Type', value: video.hook_type },
         { label: 'Product Type', value: video.product_type },
-        { label: 'Title 1', value: video.title1 },
-        { label: 'Title 2', value: video.title2 },
+        { label: 'Product Type & Key Benefits', value: video.title1 },
+        { label: 'Target Audience & Problem', value: video.title2 },
         { label: 'Script Framework', value: video.script_framework }
     ].filter(attr => attr.value); // Only show attributes that have a value
 

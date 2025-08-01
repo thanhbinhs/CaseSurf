@@ -47,7 +47,7 @@ export default function PersonalPage() {
                 setScripts(fetchedScripts);
             } catch (err) {
                 console.error("Error fetching saved scripts:", err);
-                setError("Không thể tải danh sách script đã lưu.");
+                setError("Failed to load your saved scripts. Please try again later.");
             } finally {
                 setIsLoading(false);
             }

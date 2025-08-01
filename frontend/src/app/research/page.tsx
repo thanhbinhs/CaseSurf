@@ -123,9 +123,9 @@ function ResearchContent() {
                 const errorText = await res.text();
                 try {
                     const errorJson = JSON.parse(errorText);
-                    throw new Error(errorJson.detail || 'Lỗi từ server.');
+                    throw new Error(errorJson.detail || 'An error occurred while processing your request.');
                 } catch {
-                    throw new Error(`Server phản hồi với mã lỗi: ${res.status}`);
+                    throw new Error(`An unexpected error occurred.`);
                 }
             }
 
@@ -143,7 +143,7 @@ function ResearchContent() {
             }
 
         } catch (err) {
-            const errorMessage = err instanceof Error ? err.message : 'Đã xảy ra lỗi không mong muốn.';
+            const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred.';
             setError(errorMessage);
         } finally {
             setIsLoadingReport(false);
@@ -155,7 +155,7 @@ function ResearchContent() {
             initialSearchPerformed.current = true; // Đánh dấu là đã thực hiện
             handleSearch(currentUrl);
         } else if (!currentUrl) {
-            setError("Vui lòng cung cấp URL để phân tích.");
+            setError("Please provide a URL to analyze.");
             setIsLoadingReport(false);
         }
     }, [currentUrl, user, handleSearch]);
@@ -168,7 +168,7 @@ function ResearchContent() {
         setIsEditingScript(false);
 
         if (!user) {
-            setScriptGenerationError("Vui lòng đăng nhập để sử dụng chức năng này.");
+            setScriptGenerationError("You need to be logged in to use this feature.");
             setIsGeneratingNewScript(false);
             return;
         }
@@ -181,7 +181,7 @@ function ResearchContent() {
             const userDocSnap = await getDoc(userDocRef);
 
             if (!userDocSnap.exists()) {
-                throw new Error("Không tìm thấy thông tin người dùng.");
+                throw new Error("User information not found.");
             }
 
             const currentCredit = userDocSnap.data().credit;
@@ -208,7 +208,7 @@ function ResearchContent() {
                 body: JSON.stringify(payload),
             });
             const scriptText = await res.text();
-            if (!res.ok) throw new Error(scriptText || 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút');
+            if (!res.ok) throw new Error(scriptText || 'An error occurred, please try again later.');
 
             // Bước 4: Trừ credit sau khi gọi API thành công
             await updateDoc(userDocRef, {
@@ -219,7 +219,7 @@ function ResearchContent() {
             setImprovedScript(scriptText);
 
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Đã xảy ra lỗi xin vui lòng thử lại sau ít phút';
+            const errorMessage = error instanceof Error ? error.message : 'An error occurred, please try again later.';
             setScriptGenerationError(`${errorMessage}.`);
         } finally {
             setIsGeneratingNewScript(false);

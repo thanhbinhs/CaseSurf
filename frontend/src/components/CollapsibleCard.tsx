@@ -70,7 +70,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                             disabled={isSaving}
                         >
                             {isSaving ? (
-                                <span className="text-sm text-blue-600 font-semibold px-1">Đang lưu...</span>
+                                <span className="text-sm text-blue-600 font-semibold px-1">Saving...</span>
                             ) : (
                                 <SaveIcon className="w-5 h-5 text-blue-600" />
                             )}
@@ -80,7 +80,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                         <button
                             onClick={handleEdit}
                             className="p-2 rounded-lg transition-colors bg-slate-100 hover:bg-slate-200"
-                            title="Chỉnh sửa"
+                            title="Edit content"
                         >
                             <PencilIcon className="w-5 h-5 text-slate-600" />
                         </button>
@@ -91,7 +91,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                         title={isCopied ? "Đã chép!" : "Copy nội dung"}
                     >
                         {isCopied ? (
-                             <span className="text-sm text-blue-600 font-semibold px-1">Đã chép!</span>
+                             <span className="text-sm text-blue-600 font-semibold px-1">Copied!</span>
                         ) : (
                             <ClipboardIcon className="w-5 h-5 text-slate-600" />
                         )}
@@ -101,7 +101,7 @@ export const CollapsibleCard: React.FC<CollapsibleCardProps> = ({
                     <button
                         onClick={(e) => { e.stopPropagation(); toggleOpen(); }}
                         className="p-2 rounded-lg hover:bg-slate-100"
-                        title={isOpen ? "Thu gọn" : "Mở rộng"}
+                        title={isOpen ? "Collapse" : "Expand"}
                     >
                         <ChevronDownIcon className={`w-6 h-6 text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
                     </button>
